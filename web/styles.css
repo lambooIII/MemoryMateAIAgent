@@ -282,6 +282,7 @@ button:disabled {
 }
 
 .conversation-list { display: grid; gap: 6px; max-height: 220px; overflow-y: auto; }
+label.field:has(#userId), label.field:has(#subjectId) { display: none; }
 .conversation-list-empty { color: var(--muted); font-size: 12px; padding: 8px 2px; }
 .conversation-row { display: flex; align-items: stretch; border: 1px solid transparent; border-radius: 6px; }
 .conversation-row:hover, .conversation-row.is-active { border-color: var(--line); background: var(--surface-strong); }
