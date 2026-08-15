@@ -60,8 +60,16 @@ class AgentService:
             if not settings.tavily_api_key:
                 raise ValueError("启用联网搜索时必须填写 TAVILY_API_KEY")
             from langchain_tavily import TavilySearch
+            from langchain_tavily._utilities import TavilySearchAPIWrapper
 
-            tools.append(TavilySearch(max_results=3, api_key=settings.tavily_api_key))
+            tools.append(
+                TavilySearch(
+                    max_results=3,
+                    api_wrapper=TavilySearchAPIWrapper(
+                        tavily_api_key=settings.tavily_api_key,
+                    ),
+                )
+            )
 
         self.agent = create_agent(
             model=model,
