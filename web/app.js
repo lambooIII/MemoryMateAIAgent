@@ -10,6 +10,7 @@ const elements = {
   chatForm: document.querySelector("#chatForm"),
   clearThreadButton: document.querySelector("#clearThreadButton"),
   conversation: document.querySelector("#conversation"),
+  conversationList: document.querySelector("#conversationList"),
   emptyState: document.querySelector("#emptyState"),
   fileSummary: document.querySelector("#fileSummary"),
   knowledgeFiles: document.querySelector("#knowledgeFiles"),
@@ -33,6 +34,8 @@ const elements = {
 };
 
 let requestController = null;
+let conversationMessages = [];
+const CONVERSATIONS_KEY = "agent-conversations-v1";
 
 function createId(prefix) {
   const value = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -53,6 +56,79 @@ function persistIdentity() {
   if (userId) localStorage.setItem("agent-user-id", userId);
   if (threadId) localStorage.setItem("agent-thread-id", threadId);
   if (subjectId) localStorage.setItem("agent-subject-id", subjectId);
+}
+
+function readConversations() {
+  try {
+    const value = JSON.parse(localStorage.getItem(CONVERSATIONS_KEY) || "[]");
+    return Array.isArray(value) ? value : [];
+  } catch { return []; }
+}
+
+function saveConversations(conversations) {
+  localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(conversations.slice(0, 50)));
+}
+
+function saveCurrentConversation() {
+  const threadId = elements.threadId.value.trim();
+  if (!threadId || !conversationMessages.length) return;
+  const conversations = readConversations().filter((item) => item.thread_id !== threadId);
+  const firstUser = conversationMessages.find((item) => item.role === "user");
+  conversations.unshift({
+    thread_id: threadId,
+    user_id: elements.userId.value.trim(),
+    subject_id: elements.subjectId.value.trim(),
+    title: firstUser?.text?.slice(0, 28) || "新会话",
+    updated_at: new Date().toISOString(),
+    messages: conversationMessages.filter((item) => item.text),
+  });
+  saveConversations(conversations);
+  renderConversationList();
+}
+
+function renderConversationList() {
+  if (!elements.conversationList) return;
+  elements.conversationList.replaceChildren();
+  const currentId = elements.threadId.value.trim();
+  const conversations = readConversations();
+  if (!conversations.length) {
+    const empty = document.createElement("div");
+    empty.className = "conversation-list-empty";
+    empty.textContent = "暂无历史会话";
+    elements.conversationList.append(empty);
+    return;
+  }
+  conversations.forEach((item) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `conversation-item${item.thread_id === currentId ? " is-active" : ""}`;
+    const title = document.createElement("strong");
+    title.textContent = item.title || "无标题会话";
+    const meta = document.createElement("span");
+    meta.textContent = `${item.subject_id || "default"} · ${item.messages?.length || 0} 条`;
+    button.append(title, meta);
+    button.addEventListener("click", () => switchConversation(item.thread_id));
+    elements.conversationList.append(button);
+  });
+}
+
+function switchConversation(threadId) {
+  const item = readConversations().find((conversation) => conversation.thread_id === threadId);
+  if (!item) return;
+  elements.userId.value = item.user_id || elements.userId.value;
+  elements.subjectId.value = item.subject_id || elements.subjectId.value;
+  elements.threadId.value = item.thread_id;
+  conversationMessages = Array.isArray(item.messages) ? item.messages : [];
+  persistIdentity();
+  renderStoredMessages();
+  renderConversationList();
+  closeSidebar();
+}
+
+function renderStoredMessages() {
+  elements.conversation.replaceChildren();
+  if (!conversationMessages.length) { resetConversation(false); return; }
+  conversationMessages.forEach((item) => createMessage(item.role, item.text, false));
 }
 
 function showToast(message, type = "info") {
@@ -106,7 +182,7 @@ function hideEmptyState() {
   }
 }
 
-function createMessage(role, text = "") {
+function createMessage(role, text = "", record = true) {
   hideEmptyState();
   const message = document.createElement("article");
   message.className = `message ${role}`;
@@ -126,6 +202,10 @@ function createMessage(role, text = "") {
   content.append(roleLabel, body);
   message.append(avatar, content);
   elements.conversation.append(message);
+  if (record) {
+    conversationMessages.push({ role, text });
+    saveCurrentConversation();
+  }
   scrollConversation();
   return { message, body, content };
 }
@@ -246,6 +326,8 @@ async function sendMessage(message) {
       onEvent(event) {
         if (event.type === "token") {
           assistant.body.textContent += extractToken(event);
+          const latest = conversationMessages[conversationMessages.length - 1];
+          if (latest?.role === "assistant") latest.text = assistant.body.textContent;
         } else if (event.type === "done") {
           const finalAnswer = event.answer ?? event.content;
           if (finalAnswer && !assistant.body.textContent) assistant.body.textContent = finalAnswer;
@@ -264,6 +346,9 @@ async function sendMessage(message) {
       showToast(error.message, "error");
     }
   } finally {
+    const latest = conversationMessages[conversationMessages.length - 1];
+    if (latest?.role === "assistant") latest.text = assistant.body.textContent;
+    saveCurrentConversation();
     assistant.message.classList.remove("is-streaming");
     requestController = null;
     elements.sendButton.disabled = false;
@@ -273,7 +358,8 @@ async function sendMessage(message) {
   }
 }
 
-function resetConversation() {
+function resetConversation(save = true) {
+  conversationMessages = [];
   elements.conversation.replaceChildren();
   const empty = document.createElement("div");
   empty.className = "empty-state";
@@ -287,6 +373,11 @@ function resetConversation() {
   empty.append(mark, title, description);
   elements.conversation.append(empty);
   elements.emptyState = empty;
+  if (save) {
+    const threadId = elements.threadId.value.trim();
+    saveConversations(readConversations().filter((item) => item.thread_id !== threadId));
+    renderConversationList();
+  }
 }
 
 async function clearThread() {
@@ -415,5 +506,8 @@ document.querySelectorAll("[data-prompt]").forEach((button) => {
 });
 
 loadIdentity();
+const existingConversation = readConversations().find((item) => item.thread_id === elements.threadId.value.trim());
+if (existingConversation) switchConversation(existingConversation.thread_id);
+else renderConversationList();
 checkStatus();
 elements.messageInput.focus();

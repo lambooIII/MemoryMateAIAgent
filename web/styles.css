@@ -281,6 +281,13 @@ button:disabled {
   border-top: 1px solid var(--border);
 }
 
+.conversation-list { display: grid; gap: 6px; max-height: 220px; overflow-y: auto; }
+.conversation-list-empty { color: var(--muted); font-size: 12px; padding: 8px 2px; }
+.conversation-item { display: grid; gap: 3px; width: 100%; border: 1px solid transparent; border-radius: 6px; padding: 9px 10px; background: transparent; color: var(--text); text-align: left; cursor: pointer; }
+.conversation-item:hover, .conversation-item.is-active { border-color: var(--line); background: var(--surface-strong); }
+.conversation-item strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
+.conversation-item span { color: var(--muted); font-size: 11px; }
+
 .status-line {
   display: flex;
   align-items: center;
