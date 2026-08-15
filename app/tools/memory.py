@@ -8,7 +8,6 @@ from langgraph.prebuilt import ToolRuntime
 from app.schemas.chat import SubjectProfile
 
 
-@tool(args_schema=SubjectProfile)
 def _build_memory_content(data: dict) -> str:
     labels = {
         "relation": "关系",
