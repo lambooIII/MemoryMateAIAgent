@@ -273,8 +273,8 @@ function renderGraph(data) {
   svg.setAttribute("aria-label", "人物知识图谱");
   data.nodes.forEach((node, index) => {
     const angle = (Math.PI * 2 * index) / data.nodes.length - Math.PI / 2;
-    const x = 360 + Math.cos(angle) * Math.min(210, 90 + data.nodes.length * 20);
-    const y = 225 + Math.sin(angle) * Math.min(145, 55 + data.nodes.length * 16);
+    const x = data.nodes.length === 1 ? 360 : 360 + Math.cos(angle) * Math.min(210, 90 + data.nodes.length * 20);
+    const y = data.nodes.length === 1 ? 225 : 225 + Math.sin(angle) * Math.min(145, 55 + data.nodes.length * 16);
     const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
     group.setAttribute("class", "graph-node");
     group.setAttribute("tabindex", "0");
@@ -289,12 +289,21 @@ function renderGraph(data) {
     core.setAttribute("class", "graph-node-core");
     core.append(circle, label);
     group.append(core);
-    group.addEventListener("click", () => showGraphDetail(node));
-    group.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") showGraphDetail(node); });
+    const selectNode = () => {
+      svg.querySelectorAll(".graph-node.is-selected").forEach((selected) => selected.classList.remove("is-selected"));
+      group.classList.add("is-selected");
+      showGraphDetail(node);
+    };
+    group.addEventListener("click", selectNode);
+    group.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") selectNode(); });
     svg.append(group);
   });
   elements.graphCanvas.append(svg);
-  showGraphDetail(data.nodes[0]);
+  elements.graphDetail.replaceChildren();
+  const detailEmpty = document.createElement("div");
+  detailEmpty.className = "graph-detail-empty";
+  detailEmpty.textContent = "点击人物节点查看已保存资料";
+  elements.graphDetail.append(detailEmpty);
 }
 
 async function openGraph() {
