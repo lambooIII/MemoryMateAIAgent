@@ -63,7 +63,10 @@ function createId(prefix) {
 function loadIdentity() {
   elements.userId.value = localStorage.getItem("agent-user-id") || createId("user");
   elements.threadId.value = localStorage.getItem("agent-thread-id") || createId("thread");
-  elements.subjectId.value = localStorage.getItem("agent-subject-id") || "all";
+  const savedSubject = localStorage.getItem("agent-subject-id");
+  elements.subjectId.value = !savedSubject || savedSubject === "partner" ? "all" : savedSubject;
+  const migratedSubjects = readOptionList(SUBJECTS_KEY, ["all"]).filter((value) => value !== "partner");
+  localStorage.setItem(SUBJECTS_KEY, JSON.stringify(migratedSubjects.length ? migratedSubjects : ["all"]));
   syncIdentitySelectors();
   persistIdentity();
 }
