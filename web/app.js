@@ -11,6 +11,10 @@ const elements = {
   clearThreadButton: document.querySelector("#clearThreadButton"),
   conversation: document.querySelector("#conversation"),
   conversationList: document.querySelector("#conversationList"),
+  userSelector: document.querySelector("#userSelector"),
+  subjectSelector: document.querySelector("#subjectSelector"),
+  addUserButton: document.querySelector("#addUserButton"),
+  addSubjectButton: document.querySelector("#addSubjectButton"),
   emptyState: document.querySelector("#emptyState"),
   fileSummary: document.querySelector("#fileSummary"),
   knowledgeFiles: document.querySelector("#knowledgeFiles"),
@@ -36,6 +40,8 @@ const elements = {
 let requestController = null;
 let conversationMessages = [];
 const CONVERSATIONS_KEY = "agent-conversations-v1";
+const USERS_KEY = "agent-users-v1";
+const SUBJECTS_KEY = "agent-subjects-v1";
 
 function createId(prefix) {
   const value = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -45,8 +51,40 @@ function createId(prefix) {
 function loadIdentity() {
   elements.userId.value = localStorage.getItem("agent-user-id") || createId("user");
   elements.threadId.value = localStorage.getItem("agent-thread-id") || createId("thread");
-  elements.subjectId.value = localStorage.getItem("agent-subject-id") || "partner";
+  elements.subjectId.value = localStorage.getItem("agent-subject-id") || "all";
+  syncIdentitySelectors();
   persistIdentity();
+}
+
+function readOptionList(key, fallback) {
+  try {
+    const value = JSON.parse(localStorage.getItem(key) || "null");
+    return Array.isArray(value) && value.length ? value : fallback;
+  } catch { return fallback; }
+}
+
+function writeOption(key, value) {
+  const values = readOptionList(key, []);
+  if (!values.includes(value)) localStorage.setItem(key, JSON.stringify([...values, value].slice(0, 50)));
+}
+
+function syncSelect(select, options, selected) {
+  select.replaceChildren();
+  [...new Set(options)].forEach((value) => {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = value === "all" ? "全部对象" : value;
+    select.append(option);
+  });
+  select.value = selected;
+}
+
+function syncIdentitySelectors() {
+  writeOption(USERS_KEY, elements.userId.value);
+  writeOption(SUBJECTS_KEY, elements.subjectId.value);
+  writeOption(SUBJECTS_KEY, "all");
+  syncSelect(elements.userSelector, readOptionList(USERS_KEY, [elements.userId.value]), elements.userId.value);
+  syncSelect(elements.subjectSelector, readOptionList(SUBJECTS_KEY, ["all"]), elements.subjectId.value);
 }
 
 function persistIdentity() {
@@ -56,6 +94,8 @@ function persistIdentity() {
   if (userId) localStorage.setItem("agent-user-id", userId);
   if (threadId) localStorage.setItem("agent-thread-id", threadId);
   if (subjectId) localStorage.setItem("agent-subject-id", subjectId);
+  if (elements.userSelector && elements.userSelector.value !== userId) elements.userSelector.value = userId;
+  if (elements.subjectSelector && elements.subjectSelector.value !== subjectId) elements.subjectSelector.value = subjectId;
 }
 
 function readConversations() {
@@ -99,6 +139,8 @@ function renderConversationList() {
     return;
   }
   conversations.forEach((item) => {
+    const row = document.createElement("div");
+    row.className = `conversation-row${item.thread_id === currentId ? " is-active" : ""}`;
     const button = document.createElement("button");
     button.type = "button";
     button.className = `conversation-item${item.thread_id === currentId ? " is-active" : ""}`;
@@ -108,7 +150,19 @@ function renderConversationList() {
     meta.textContent = `${item.subject_id || "default"} · ${item.messages?.length || 0} 条`;
     button.append(title, meta);
     button.addEventListener("click", () => switchConversation(item.thread_id));
-    elements.conversationList.append(button);
+    const rename = document.createElement("button");
+    rename.type = "button";
+    rename.className = "conversation-rename";
+    rename.textContent = "重命名";
+    rename.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const title = window.prompt("输入新的会话名称", item.title || "");
+      if (!title?.trim()) return;
+      saveConversations(readConversations().map((conversation) => conversation.thread_id === item.thread_id ? { ...conversation, title: title.trim() } : conversation));
+      renderConversationList();
+    });
+    row.append(button, rename);
+    elements.conversationList.append(row);
   });
 }
 
@@ -467,6 +521,31 @@ elements.messageInput.addEventListener("keydown", (event) => {
 
 elements.userId.addEventListener("change", persistIdentity);
 elements.threadId.addEventListener("change", persistIdentity);
+elements.subjectId.addEventListener("change", persistIdentity);
+elements.userSelector.addEventListener("change", () => {
+  elements.userId.value = elements.userSelector.value;
+  persistIdentity();
+});
+elements.subjectSelector.addEventListener("change", () => {
+  elements.subjectId.value = elements.subjectSelector.value;
+  persistIdentity();
+});
+elements.addUserButton.addEventListener("click", () => {
+  const value = window.prompt("输入登录账号 ID");
+  if (!value?.trim()) return;
+  elements.userId.value = value.trim();
+  writeOption(USERS_KEY, elements.userId.value);
+  syncIdentitySelectors();
+  persistIdentity();
+});
+elements.addSubjectButton.addEventListener("click", () => {
+  const value = window.prompt("输入对象名称，例如：妈妈、爸爸、对象");
+  if (!value?.trim()) return;
+  elements.subjectId.value = value.trim();
+  writeOption(SUBJECTS_KEY, elements.subjectId.value);
+  syncIdentitySelectors();
+  persistIdentity();
+});
 elements.newThreadButton.addEventListener("click", () => {
   elements.threadId.value = createId("thread");
   persistIdentity();

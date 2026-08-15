@@ -47,7 +47,7 @@ class InMemoryVectorRepository:
                 score=_cosine_similarity(vector, stored_vector),
             )
             for chunk, stored_vector in self._entries.values()
-            if chunk.subject_id == subject_id
+            if subject_id in {"", "all", "全部"} or chunk.subject_id == subject_id
         ]
         return sorted(scored, key=lambda item: item.score or -1, reverse=True)[:limit]
 
@@ -109,7 +109,7 @@ class MilvusVectorRepository:
             collection_name=self._collection,
             data=[vector],
             limit=limit,
-            filter=f"subject_id == {json.dumps(subject_id, ensure_ascii=False)}",
+            filter=(None if subject_id in {"", "all", "全部"} else f"subject_id == {json.dumps(subject_id, ensure_ascii=False)}"),
             output_fields=["text", "source", "chunk_id", "subject_id"],
         )
         return [
