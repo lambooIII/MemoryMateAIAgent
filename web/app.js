@@ -516,7 +516,7 @@ async function sendMessage(message) {
   const assistant = createMessage("assistant");
   const process = createProcessPanel(assistant.content);
   process.add("已接收问题，正在分析请求");
-  process.add("正在检索本地知识库");
+  process.add("正在判断是否需要检索私人知识库或调用工具");
   assistant.message.classList.add("is-streaming");
   elements.sendButton.disabled = true;
   elements.messageInput.disabled = true;
@@ -538,7 +538,7 @@ async function sendMessage(message) {
     await consumeEventStream(response, {
       onEvent(event) {
         if (event.type === "token") {
-          if (!assistant.body.textContent) process.add("资料检索完成，正在生成回答");
+          if (!assistant.body.textContent) process.add("信息处理完成，正在生成回答");
           assistant.body.textContent += extractToken(event);
           const latest = conversationMessages[conversationMessages.length - 1];
           if (latest?.role === "assistant") latest.text = assistant.body.textContent;
