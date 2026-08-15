@@ -23,6 +23,7 @@ const elements = {
   sidebar: document.querySelector("#sidebar"),
   statusDot: document.querySelector("#statusDot"),
   statusText: document.querySelector("#statusText"),
+  subjectId: document.querySelector("#subjectId"),
   threadId: document.querySelector("#threadId"),
   toastRegion: document.querySelector("#toastRegion"),
   uploadButton: document.querySelector("#uploadButton"),
@@ -41,14 +42,17 @@ function createId(prefix) {
 function loadIdentity() {
   elements.userId.value = localStorage.getItem("agent-user-id") || createId("user");
   elements.threadId.value = localStorage.getItem("agent-thread-id") || createId("thread");
+  elements.subjectId.value = localStorage.getItem("agent-subject-id") || "partner";
   persistIdentity();
 }
 
 function persistIdentity() {
   const userId = elements.userId.value.trim();
   const threadId = elements.threadId.value.trim();
+  const subjectId = elements.subjectId.value.trim();
   if (userId) localStorage.setItem("agent-user-id", userId);
   if (threadId) localStorage.setItem("agent-thread-id", threadId);
+  if (subjectId) localStorage.setItem("agent-subject-id", subjectId);
 }
 
 function showToast(message, type = "info") {
@@ -114,7 +118,7 @@ function createMessage(role, text = "") {
   const content = document.createElement("div");
   const roleLabel = document.createElement("div");
   roleLabel.className = "message-role";
-  roleLabel.textContent = role === "assistant" ? "恋爱助手" : "你";
+  roleLabel.textContent = role === "assistant" ? "私人助手" : "你";
   const body = document.createElement("div");
   body.className = "message-text";
   body.textContent = text;
@@ -209,9 +213,10 @@ async function consumeEventStream(response, handlers) {
 function getChatPayload() {
   const userId = elements.userId.value.trim();
   const threadId = elements.threadId.value.trim();
-  if (!userId || !threadId) throw new Error("用户 ID 和会话 ID 不能为空");
+  const subjectId = elements.subjectId.value.trim();
+  if (!userId || !threadId || !subjectId) throw new Error("用户 ID、对象 ID 和会话 ID 不能为空");
   persistIdentity();
-  return { user_id: userId, thread_id: threadId };
+  return { user_id: userId, subject_id: subjectId, thread_id: threadId };
 }
 
 async function sendMessage(message) {

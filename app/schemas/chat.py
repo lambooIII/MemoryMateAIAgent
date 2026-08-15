@@ -7,6 +7,7 @@ class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=20_000)
     thread_id: str = Field(default="default-thread", min_length=1, max_length=128)
     user_id: str = Field(default="anonymous", min_length=1, max_length=128)
+    subject_id: str = Field(default="partner", min_length=1, max_length=128)
 
 
 class SourceReference(BaseModel):
@@ -19,6 +20,7 @@ class ChatResponse(BaseModel):
     answer: str
     thread_id: str
     user_id: str
+    subject_id: str
     sources: list[SourceReference] = Field(default_factory=list)
 
 
@@ -28,10 +30,11 @@ class StatusResponse(BaseModel):
     capabilities: dict[str, Any]
 
 
-class UserProfile(BaseModel):
-    """恋爱对象资料和稳定偏好的结构化输入。"""
+class SubjectProfile(BaseModel):
+    """任意关系对象的资料和稳定偏好。"""
 
-    partner_name: str | None = Field(default=None, description="对象姓名")
+    relation: str | None = Field(default=None, description="关系类型，例如妈妈、爸爸、对象、前任")
+    name: str | None = Field(default=None, description="关系对象姓名")
     birthday: str | None = Field(default=None, description="对象生日，建议使用 YYYY-MM-DD")
     occupation: str | None = Field(default=None, description="对象职业或工作信息")
     preferences: list[str] = Field(default_factory=list, description="对象喜欢的事物")

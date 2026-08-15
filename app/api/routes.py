@@ -50,7 +50,11 @@ async def chat(payload: ChatRequest, request: Request) -> ChatResponse:
     service = _agent_service(request)
     try:
         answer = await run_in_threadpool(
-            service.invoke, payload.message, payload.thread_id, payload.user_id
+            service.invoke,
+            payload.message,
+            payload.thread_id,
+            payload.user_id,
+            payload.subject_id,
         )
     except ModelConfigurationError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -60,6 +64,7 @@ async def chat(payload: ChatRequest, request: Request) -> ChatResponse:
         answer=answer,
         thread_id=payload.thread_id,
         user_id=payload.user_id,
+        subject_id=payload.subject_id,
     )
 
 
@@ -69,7 +74,12 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
 
     async def events():
         try:
-            async for token in service.stream(payload.message, payload.thread_id, payload.user_id):
+            async for token in service.stream(
+                payload.message,
+                payload.thread_id,
+                payload.user_id,
+                payload.subject_id,
+            ):
                 yield f"data: {json.dumps({'type': 'token', 'content': token}, ensure_ascii=False)}\n\n"
             yield f"data: {json.dumps({'type': 'done'}, ensure_ascii=False)}\n\n"
         except Exception as exc:

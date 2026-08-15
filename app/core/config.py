@@ -16,7 +16,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    app_name: str = "LoveMemory AI"
+    app_name: str = "MemoryMate AI"
     app_env: str = "development"
     app_host: str = "127.0.0.1"
     app_port: int = 8000

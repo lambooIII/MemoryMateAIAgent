@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="融合 Agent、长短期记忆与 RAG 的私人恋爱记忆助手" />
-    <title>LoveMemory AI 私人恋爱助手</title>
+    <meta name="description" content="融合 Agent、长短期记忆与 RAG 的私人关系记忆助手" />
+    <title>MemoryMate AI 私人记忆助手</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -13,8 +13,8 @@
         <div class="brand">
           <div class="brand-mark" aria-hidden="true">AI</div>
           <div>
-            <strong>LoveMemory AI</strong>
-            <span>私人恋爱记忆助手</span>
+            <strong>MemoryMate AI</strong>
+            <span>私人关系记忆助手</span>
           </div>
         </div>
 
@@ -25,6 +25,10 @@
           <label class="field">
             <span>用户 ID</span>
             <input id="userId" type="text" autocomplete="off" maxlength="80" />
+          </label>
+          <label class="field">
+            <span>当前对象 ID</span>
+            <input id="subjectId" type="text" autocomplete="off" maxlength="80" placeholder="妈妈、爸爸、对象……" />
           </label>
           <label class="field">
             <span>会话 ID</span>
@@ -38,12 +42,12 @@
 
         <section class="side-section" aria-labelledby="knowledge-title">
           <div class="section-heading">
-            <h2 id="knowledge-title">恋爱备忘录</h2>
+            <h2 id="knowledge-title">关系备忘录</h2>
             <span class="section-tag">RAG</span>
           </div>
           <label class="upload-zone" id="uploadZone" for="knowledgeFiles">
             <span class="upload-symbol" aria-hidden="true">+</span>
-            <strong>添加恋爱笔记</strong>
+            <strong>添加关系笔记</strong>
             <span>可多选，格式由服务端配置决定</span>
           </label>
           <input id="knowledgeFiles" class="visually-hidden" type="file" multiple />
@@ -67,8 +71,8 @@
         <header class="topbar">
           <button class="icon-button menu-button" id="menuButton" type="button" aria-label="打开侧栏">☰</button>
           <div>
-            <h1>私人恋爱记忆助手</h1>
-            <p>对象资料 · 恋爱备忘录 · 个性化建议</p>
+            <h1>私人关系记忆助手</h1>
+            <p>家人 · 恋人 · 朋友 · 个性化记忆</p>
           </div>
           <div class="model-state">
             <span>运行模式</span>
@@ -79,8 +83,8 @@
         <section class="conversation" id="conversation" aria-live="polite">
           <div class="empty-state" id="emptyState">
             <div class="empty-mark" aria-hidden="true">A</div>
-            <h2>开始一段恋爱对话</h2>
-            <p>询问对象资料、回忆重要时刻，或把新的喜好和雷区交给助手确认保存。</p>
+            <h2>开始一次私人对话</h2>
+            <p>选择一个关系对象，查询资料、回忆重要时刻，或确认保存新的喜好和雷区。</p>
             <div class="suggestions">
               <button type="button" data-prompt="我的对象叫什么？她的生日是什么时候？请先检索恋爱备忘录。">查询对象资料</button>
               <button type="button" data-prompt="今天我们吃饭时发现她不喜欢吃折耳根，请整理成待确认记忆。">记录新的雷区</button>
