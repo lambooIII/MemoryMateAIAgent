@@ -12,6 +12,7 @@ def _build_memory_content(data: dict) -> str:
     labels = {
         "relation": "关系",
         "name": "姓名",
+        "aliases": "昵称",
         "birthday": "生日",
         "occupation": "职业或工作信息",
         "preferences": "喜欢",
@@ -31,6 +32,7 @@ def get_memory_tools(rag_service) -> list:
     def save_subject_profile(
     relation: str | None = None,
     name: str | None = None,
+    aliases: list[str] | None = None,
     birthday: str | None = None,
     occupation: str | None = None,
     preferences: list[str] | None = None,
@@ -40,21 +42,27 @@ def get_memory_tools(rag_service) -> list:
     summary: str | None = None,
     runtime: ToolRuntime = None,
 ) -> str:
-        """仅在用户明确确认后，保存当前关系对象的重要信息并更新 RAG。"""
+        """仅在用户明确确认后，按人物姓名保存重要信息并更新 RAG。"""
         if runtime is None:
             return "无法访问记忆运行时"
         user_id = runtime.state.get("user_id", "anonymous")
         subject_id = runtime.state.get("subject_id", "all")
         if subject_id in {"", "all", "全部"}:
-            subject_id = (relation or name or "").strip()
+            subject_id = (name or "").strip()
             if not subject_id:
-                return "当前知识范围是全部对象，无法判断资料属于谁。请先选择或新增对象后再保存。"
+                return "当前知识范围是全部人物，保存前需要先确认人物姓名；关系或昵称不能作为人物主键。"
+        elif name and subject_id != name.strip():
+            return (
+                f"当前人物 ID 是“{subject_id}”，资料姓名是“{name.strip()}”。"
+                "请先确认二者是否为同一人；如果是，请将旧 ID 合并到姓名 ID 后再保存。"
+            )
         namespace = ("users", user_id, "subjects", subject_id)
         existing = runtime.store.get(namespace, "profile")
         profile = dict(existing.value) if existing else {}
         updates = {
             "relation": relation,
             "name": name,
+            "aliases": aliases or [],
             "birthday": birthday,
             "occupation": occupation,
             "preferences": preferences or [],
@@ -94,14 +102,14 @@ def get_memory_tools(rag_service) -> list:
 
     @tool
     def get_subject_profile(runtime: ToolRuntime) -> str:
-        """查询当前关系对象的资料、喜好、雷区和重要日期。"""
+        """查询当前人物的关系、昵称、资料、喜好、雷区和重要日期。"""
         user_id = runtime.state.get("user_id", "anonymous")
         subject_id = runtime.state.get("subject_id", "all")
         if subject_id in {"", "all", "全部"}:
-            return "当前知识范围是全部对象，请选择具体对象后查询结构化档案。"
+            return "当前知识范围是全部人物，请选择具体姓名后查询结构化档案。"
         item = runtime.store.get(("users", user_id, "subjects", subject_id), "profile")
         if item is None:
-            return "尚未保存当前关系对象的资料"
+            return "尚未保存当前人物的资料"
         return json.dumps(item.value, ensure_ascii=False)
 
     @tool

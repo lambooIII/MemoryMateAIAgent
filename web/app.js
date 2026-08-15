@@ -88,7 +88,7 @@ function syncSelect(select, options, selected) {
   [...new Set(options)].forEach((value) => {
     const option = document.createElement("option");
     option.value = value;
-    option.textContent = value === "all" ? "全部对象（检索所有人的资料）" : value;
+    option.textContent = value === "all" ? "全部人物（检索所有人的资料）" : value;
     select.append(option);
   });
   select.value = selected;
@@ -106,6 +106,23 @@ function syncIdentitySelectors() {
   syncSelect(elements.userSelector, profiles.map((profile) => profile.label), profiles.find((profile) => profile.id === elements.userId.value)?.label);
   [...elements.userSelector.options].forEach((option, index) => { option.value = profiles[index].id; });
   syncSelect(elements.subjectSelector, readOptionList(SUBJECTS_KEY, ["all"]), elements.subjectId.value);
+}
+
+async function syncSubjectsFromKnowledge() {
+  try {
+    const response = await fetch(`${API.graph}?subject_id=all`);
+    if (!response.ok) return;
+    const data = await response.json();
+    const subjects = ["all", ...(data.nodes || []).map((node) => node.id).filter(Boolean)];
+    const current = elements.subjectId.value.trim();
+    const selected = subjects.includes(current) ? current : "all";
+    localStorage.setItem(SUBJECTS_KEY, JSON.stringify([...new Set(subjects)]));
+    elements.subjectId.value = selected;
+    syncIdentitySelectors();
+    persistIdentity();
+  } catch {
+    // 本地知识服务暂不可用时保留浏览器中的人物选项。
+  }
 }
 
 function readUserProfiles() {
@@ -218,7 +235,8 @@ function switchConversation(threadId) {
   const item = readConversations().find((conversation) => conversation.thread_id === threadId);
   if (!item) return;
   elements.userId.value = item.user_id || elements.userId.value;
-  elements.subjectId.value = item.subject_id || elements.subjectId.value;
+  const knownSubject = [...elements.subjectSelector.options].some((option) => option.value === item.subject_id);
+  elements.subjectId.value = knownSubject ? item.subject_id : "all";
   elements.threadId.value = item.thread_id;
   conversationMessages = Array.isArray(item.messages) ? item.messages : [];
   persistIdentity();
@@ -504,7 +522,7 @@ function getChatPayload() {
   const userId = elements.userId.value.trim();
   const threadId = elements.threadId.value.trim();
   const subjectId = elements.subjectId.value.trim();
-  if (!userId || !threadId || !subjectId) throw new Error("用户 ID、对象 ID 和会话 ID 不能为空");
+  if (!userId || !threadId || !subjectId) throw new Error("用户 ID、人物姓名和会话 ID 不能为空");
   persistIdentity();
   return { user_id: userId, subject_id: subjectId, thread_id: threadId };
 }
@@ -704,7 +722,7 @@ elements.addUserButton.addEventListener("click", () => {
   persistIdentity();
 });
 elements.addSubjectButton.addEventListener("click", () => {
-  const value = window.prompt("输入对象名称，例如：妈妈、爸爸、对象");
+  const value = window.prompt("输入人物姓名，例如：余锡雄、李明。关系和昵称请保存到人物资料中");
   if (!value?.trim()) return;
   elements.subjectId.value = value.trim();
   writeOption(SUBJECTS_KEY, elements.subjectId.value);
@@ -780,19 +798,20 @@ elements.addUserButton.addEventListener("click", () => {
 elements.deleteSubjectButton.addEventListener("click", async () => {
   const subjectId = elements.subjectId.value.trim();
   if (!subjectId || subjectId === "all") {
-    showToast("全部对象是固定范围，不能删除", "error");
+    showToast("全部人物是固定范围，不能删除", "error");
     return;
   }
-  if (!window.confirm(`确定删除“${subjectId}”及其本地资料吗？此操作不可恢复。`)) return;
+  if (!window.confirm(`确定删除人物“${subjectId}”及其本地资料吗？此操作不可恢复。`)) return;
   const response = await fetch(`/api/knowledge/subjects/${encodeURIComponent(subjectId)}`, { method: "DELETE" });
-  if (!response.ok) { showToast("删除对象资料失败", "error"); return; }
+  if (!response.ok) { showToast("删除人物资料失败", "error"); return; }
   localStorage.setItem(SUBJECTS_KEY, JSON.stringify(readOptionList(SUBJECTS_KEY, []).filter((item) => item !== subjectId)));
   elements.subjectId.value = "all";
   syncIdentitySelectors();
   persistIdentity();
-  showToast(`已删除${subjectId}及其资料`, "success");
+  showToast(`已删除人物${subjectId}及其资料`, "success");
 });
 loadIdentity();
+syncSubjectsFromKnowledge();
 const existingConversation = readConversations().find((item) => item.thread_id === elements.threadId.value.trim());
 if (existingConversation) switchConversation(existingConversation.thread_id);
 else renderConversationList();

@@ -27,8 +27,8 @@
             <input id="userId" type="text" autocomplete="off" maxlength="80" />
           </label>
           <label class="field">
-            <span>当前对象 ID</span>
-            <input id="subjectId" type="text" autocomplete="off" maxlength="80" placeholder="妈妈、爸爸、对象……" />
+            <span>当前人物姓名</span>
+            <input id="subjectId" type="text" autocomplete="off" maxlength="80" placeholder="例如：余锡雄" />
           </label>
           <label class="field">
             <span>会话 ID</span>
@@ -53,11 +53,11 @@
             </div>
           </label>
           <label class="field">
-            <span>知识范围</span>
+            <span>人物范围</span>
             <div class="input-action">
-              <select id="subjectSelector" aria-label="选择知识范围"></select>
-              <button class="icon-button" id="addSubjectButton" type="button" title="添加对象" aria-label="添加对象">+</button>
-              <button class="icon-button danger-icon" id="deleteSubjectButton" type="button" title="删除对象及资料" aria-label="删除对象及资料">−</button>
+              <select id="subjectSelector" aria-label="选择人物范围"></select>
+              <button class="icon-button" id="addSubjectButton" type="button" title="添加人物" aria-label="添加人物">+</button>
+              <button class="icon-button danger-icon" id="deleteSubjectButton" type="button" title="删除人物及资料" aria-label="删除人物及资料">−</button>
             </div>
           </label>
           <button class="secondary-button graph-button" id="graphButton" type="button">查看知识图谱</button>
@@ -117,7 +117,7 @@
           <div class="empty-state" id="emptyState">
             <div class="empty-mark" aria-hidden="true">A</div>
             <h2>开始一次私人对话</h2>
-            <p>选择一个关系对象，查询资料、回忆重要时刻，或确认保存新的喜好和雷区。</p>
+            <p>选择一个人物姓名，查询资料、回忆重要时刻，或确认保存新的关系、昵称、喜好和雷区。</p>
             <div class="suggestions">
               <button type="button" data-prompt="我的对象叫什么？她的生日是什么时候？请先检索恋爱备忘录。">查询对象资料</button>
               <button type="button" data-prompt="今天我们吃饭时发现她不喜欢吃折耳根，请整理成待确认记忆。">记录新的雷区</button>

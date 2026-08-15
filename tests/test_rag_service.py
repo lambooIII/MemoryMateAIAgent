@@ -28,13 +28,13 @@ def test_merge_subject_archives_source_and_updates_graph() -> None:
     service = RagService(Settings(knowledge_dir=knowledge_dir), repository)
     service._embeddings = FakeEmbeddings()
 
-    chunk_count = service.merge_subject("阿雄", "室友")
+    chunk_count = service.merge_subject("阿雄", "余锡雄")
 
     assert chunk_count == 1
     assert not source_dir.exists()
-    assert [node["id"] for node in service.graph()["nodes"]] == ["室友"]
-    merged_note = next((knowledge_dir / "室友").glob("merged_阿雄_*.md"))
-    assert "对象 ID：室友" in merged_note.read_text(encoding="utf-8")
+    assert [node["id"] for node in service.graph()["nodes"]] == ["余锡雄"]
+    merged_note = next((knowledge_dir / "余锡雄").glob("merged_阿雄_*.md"))
+    assert "对象 ID：余锡雄" in merged_note.read_text(encoding="utf-8")
     archives = list((test_root / ".temp" / "trash" / "merged-subjects").glob("阿雄_*"))
     assert len(archives) == 1
     assert (archives[0] / "profile.md").exists()
