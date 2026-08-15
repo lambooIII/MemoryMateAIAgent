@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     milvus_collection: str = "knowledge_chunks"
 
     enable_rag: bool = True
+    auto_ingest_local_knowledge: bool = True
     enable_web_search: bool = False
     tavily_api_key: str = ""
     enable_summarization: bool = False

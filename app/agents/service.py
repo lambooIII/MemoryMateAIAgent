@@ -40,7 +40,7 @@ class AgentService:
     ) -> None:
         self.settings = settings
         self.rag_service = rag_service
-        tools = [*get_basic_tools(), *get_memory_tools()]
+        tools = [*get_basic_tools(), *get_memory_tools(rag_service)]
 
         if settings.enable_rag:
             tools.append(self._create_rag_tool())

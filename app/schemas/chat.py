@@ -40,3 +40,5 @@ class SubjectProfile(BaseModel):
     preferences: list[str] = Field(default_factory=list, description="对象喜欢的事物")
     dislikes: list[str] = Field(default_factory=list, description="对象不喜欢或需要避开的事物")
     important_dates: dict[str, str] = Field(default_factory=dict, description="纪念日等重要日期")
+    category: str = Field(default="general", description="记忆分类，例如基本资料、喜好、雷区、重要事件")
+    summary: str | None = Field(default=None, description="需要长期保存的重要事件或补充摘要")

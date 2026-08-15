@@ -22,6 +22,12 @@ def _agent_service(request: Request):
     return service
 
 
+@router.get("/knowledge/notes")
+def list_knowledge_notes(subject_id: str, request: Request) -> dict:
+    notes = request.app.state.rag_service.list_memory_notes(subject_id)
+    return {"subject_id": subject_id, "notes": notes, "count": len(notes)}
+
+
 @router.get("/status", response_model=StatusResponse)
 def status(request: Request) -> StatusResponse:
     settings = request.app.state.settings
@@ -114,7 +120,7 @@ async def ingest_knowledge(
     settings = request.app.state.settings
     try:
         if files:
-            settings.knowledge_dir.mkdir(parents=True, exist_ok=True)
+            subject_directory = rag_service.subject_directory(subject_id)
             paths: list[Path] = []
             for file in files:
                 suffix = Path(file.filename or "").suffix.lower()
@@ -124,7 +130,7 @@ async def ingest_knowledge(
                         detail="MVP 仅支持 UTF-8 编码的 .txt 和 .md 文件",
                     )
                 safe_name = Path(file.filename or f"upload{suffix}").name
-                target = settings.knowledge_dir / safe_name
+                target = subject_directory / safe_name
                 content = await file.read()
                 try:
                     target.write_text(content.decode("utf-8"), encoding="utf-8")

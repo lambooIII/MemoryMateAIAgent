@@ -101,7 +101,7 @@ conda run --no-capture-output -n langchain1.2 python scripts/ingest.py
      -> 内存/Milvus -> retrieve_knowledge 工具 -> Agent 回答
 ```
 
-内存向量库在进程重启后会清空，重启后重新导入即可。
+内存向量库在进程重启后会清空，但默认启用 `AUTO_INGEST_LOCAL_KNOWLEDGE=true`。服务或电脑重启后会扫描 `knowledge/<subject_id>/`，自动调用 Embedding 并重建向量索引，不需要重新上传。原始 Markdown 文件是持久化数据源，向量只是可以随时重建的检索索引。
 
 ## 4. 切换长短期记忆
 

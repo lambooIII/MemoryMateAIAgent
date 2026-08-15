@@ -1,3 +1,4 @@
+import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -13,6 +14,9 @@ from app.memory.factory import MemoryResources
 from app.models.factory import create_chat_model
 from app.rag.repository import create_vector_repository
 from app.rag.service import RagService
+
+
+logger = logging.getLogger(__name__)
 
 
 def _configure_langsmith() -> None:
@@ -36,6 +40,16 @@ async def lifespan(app: FastAPI):
     app.state.settings = settings
     app.state.rag_service = rag_service
     app.state.agent_service = None
+    if (
+        settings.enable_rag
+        and settings.auto_ingest_local_knowledge
+        and settings.embedding_configured
+    ):
+        try:
+            restored = rag_service.restore_local_knowledge()
+            logger.info("Restored %s local knowledge chunks", restored)
+        except Exception:
+            logger.exception("Failed to restore local knowledge; the API will remain available")
     if settings.model_configured:
         app.state.agent_service = AgentService(
             settings=settings,
@@ -69,4 +83,3 @@ if __name__ == "__main__":
 
     settings = get_settings()
     uvicorn.run("app.main:app", host=settings.app_host, port=settings.app_port, reload=True)
-

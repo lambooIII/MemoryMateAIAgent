@@ -1,6 +1,9 @@
 import hashlib
+import re
+from datetime import datetime
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -39,6 +42,34 @@ class RagService:
         ]
         return self.ingest_paths(paths, subject_id)
 
+    def restore_local_knowledge(self) -> int:
+        self.settings.knowledge_dir.mkdir(parents=True, exist_ok=True)
+        total = 0
+        root_files = [
+            path
+            for path in self.settings.knowledge_dir.iterdir()
+            if path.is_file() and path.suffix.lower() in self.SUPPORTED_SUFFIXES
+        ]
+        if root_files:
+            total += self.ingest_paths(root_files, "general")
+        for subject_directory in self.settings.knowledge_dir.iterdir():
+            if not subject_directory.is_dir():
+                continue
+            paths = [
+                path
+                for path in subject_directory.rglob("*")
+                if path.is_file() and path.suffix.lower() in self.SUPPORTED_SUFFIXES
+            ]
+            if paths:
+                total += self.ingest_paths(paths, subject_directory.name)
+        return total
+
+    def subject_directory(self, subject_id: str) -> Path:
+        safe_subject_id = re.sub(r"[^\w-]+", "_", subject_id, flags=re.UNICODE).strip("_")
+        directory = self.settings.knowledge_dir / (safe_subject_id or "general")
+        directory.mkdir(parents=True, exist_ok=True)
+        return directory
+
     def ingest_paths(self, paths: list[Path], subject_id: str = "general") -> int:
         documents: list[Document] = []
         for path in paths:
@@ -64,6 +95,46 @@ class RagService:
             )
         vectors = self.embeddings.embed_documents([chunk.text for chunk in chunks]) if chunks else []
         return self.repository.upsert(chunks, vectors)
+
+    def save_memory_note(
+        self,
+        subject_id: str,
+        title: str,
+        content: str,
+        category: str,
+        source: str = "chat",
+    ) -> tuple[Path, int]:
+        now = datetime.now().astimezone()
+        subject_directory = self.subject_directory(subject_id)
+        filename = f"{now:%Y%m%d_%H%M%S}_{uuid4().hex[:8]}.md"
+        path = subject_directory / filename
+        note = (
+            f"# {title}\n\n"
+            f"- 对象 ID：{subject_id}\n"
+            f"- 分类：{category}\n"
+            f"- 来源：{source}\n"
+            f"- 保存时间：{now.isoformat(timespec='seconds')}\n\n"
+            f"{content.strip()}\n"
+        )
+        path.write_text(note, encoding="utf-8")
+        chunk_count = self.ingest_paths([path], subject_id)
+        return path, chunk_count
+
+    def list_memory_notes(self, subject_id: str) -> list[dict[str, str]]:
+        safe_subject_id = re.sub(r"[^\w-]+", "_", subject_id, flags=re.UNICODE).strip("_")
+        subject_directory = self.settings.knowledge_dir / (safe_subject_id or "general")
+        if not subject_directory.exists():
+            return []
+        return [
+            {
+                "filename": path.name,
+                "content": path.read_text(encoding="utf-8"),
+                "updated_at": datetime.fromtimestamp(path.stat().st_mtime).astimezone().isoformat(
+                    timespec="seconds"
+                ),
+            }
+            for path in sorted(subject_directory.glob("*.md"), reverse=True)
+        ]
 
     def search(
         self,
