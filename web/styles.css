@@ -308,12 +308,12 @@ label.field:has(#userId), label.field:has(#subjectId) { display: none; }
 
 .graph-modal { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 24px; background: rgb(16 24 40 / 42%); }
 .graph-modal[hidden] { display: none; }
-.graph-dialog { width: min(980px, 100%); max-height: min(760px, 92vh); overflow: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); box-shadow: 0 24px 70px rgb(16 24 40 / 24%); }
+.graph-dialog { display: grid; grid-template-rows: auto minmax(0, 1fr); width: min(980px, 100%); height: min(760px, 92vh); overflow: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); box-shadow: 0 24px 70px rgb(16 24 40 / 24%); }
 .graph-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid var(--border); }
 .graph-header h2 { margin: 4px 0 0; font-size: 20px; }
 .eyebrow { color: var(--primary); font-size: 10px; letter-spacing: .12em; }
-.graph-body { display: grid; grid-template-columns: minmax(0, 1fr) 280px; min-height: 440px; }
-.graph-canvas { display: grid; place-items: center; min-height: 440px; padding: 12px; background: #f7f8fa; }
+.graph-body { display: grid; grid-template-columns: minmax(0, 1fr) 280px; min-height: 0; }
+.graph-canvas { display: grid; place-items: center; min-height: 0; padding: 12px; overflow: hidden; background: #f7f8fa; }
 .graph-canvas svg { width: 100%; height: 100%; min-height: 400px; overflow: visible; }
 .graph-node { cursor: pointer; outline: none; }
 .graph-node circle { fill: #dbeafe; stroke: #2563eb; stroke-width: 2; filter: drop-shadow(0 7px 8px rgb(37 99 235 / 15%)); transition: fill 180ms ease, r 180ms ease; }
@@ -324,7 +324,7 @@ label.field:has(#userId), label.field:has(#subjectId) { display: none; }
 .graph-empty-mark { margin: 0 auto 12px; color: #2563eb; font-size: 54px; line-height: 1; }
 .graph-empty h3 { margin: 0 0 8px; color: var(--text); }
 .graph-empty p { margin: 0; font-size: 13px; line-height: 1.7; }
-.graph-detail { overflow-y: auto; padding: 22px; border-left: 1px solid var(--border); background: var(--surface); }
+.graph-detail { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 22px; border-left: 1px solid var(--border); background: var(--surface); }
 .graph-detail h3 { margin: 0; font-size: 22px; }
 .graph-detail-hint { margin: 6px 0 18px; color: var(--muted); font-size: 12px; }
 .graph-detail-empty { display: grid; height: 100%; place-items: center; color: var(--muted); font-size: 13px; text-align: center; }
