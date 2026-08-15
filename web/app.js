@@ -3,6 +3,7 @@ const API = {
   chat: "/api/chat",
   stream: "/api/chat/stream",
   ingest: "/api/knowledge/ingest",
+  graph: "/api/knowledge/graph",
   thread: (threadId) => `/api/threads/${encodeURIComponent(threadId)}`,
 };
 
@@ -11,6 +12,11 @@ const elements = {
   clearThreadButton: document.querySelector("#clearThreadButton"),
   conversation: document.querySelector("#conversation"),
   conversationList: document.querySelector("#conversationList"),
+  graphButton: document.querySelector("#graphButton"),
+  graphModal: document.querySelector("#graphModal"),
+  graphCanvas: document.querySelector("#graphCanvas"),
+  graphDetail: document.querySelector("#graphDetail"),
+  closeGraphButton: document.querySelector("#closeGraphButton"),
   conversationCapacity: document.querySelector("#conversationCapacity"),
   userSelector: document.querySelector("#userSelector"),
   subjectSelector: document.querySelector("#subjectSelector"),
@@ -204,6 +210,81 @@ function renderStoredMessages() {
   if (!conversationMessages.length) { resetConversation(false); return; }
   conversationMessages.forEach((item) => createMessage(item.role, item.text, false));
 }
+
+function showGraphDetail(node) {
+  elements.graphDetail.replaceChildren();
+  const title = document.createElement("h3");
+  title.textContent = node.label;
+  const hint = document.createElement("p");
+  hint.className = "graph-detail-hint";
+  hint.textContent = `${node.notes?.length || 0} 条已保存资料`;
+  elements.graphDetail.append(title, hint);
+  (node.notes || []).forEach((note) => {
+    const article = document.createElement("article");
+    article.className = "graph-note";
+    const source = document.createElement("strong");
+    source.textContent = note.source;
+    const content = document.createElement("p");
+    content.textContent = note.content;
+    article.append(source, content);
+    elements.graphDetail.append(article);
+  });
+}
+
+function renderGraph(data) {
+  elements.graphCanvas.replaceChildren();
+  if (!data.nodes?.length) {
+    const empty = document.createElement("div");
+    empty.className = "graph-empty";
+    empty.innerHTML = "<div class=\"graph-empty-mark\">◎</div><h3>还没有人物节点</h3><p>在聊天或知识库中确认保存人物资料后，这里会自动生成小球。</p>";
+    elements.graphCanvas.append(empty);
+    elements.graphDetail.replaceChildren();
+    const detailEmpty = document.createElement("div");
+    detailEmpty.className = "graph-detail-empty";
+    detailEmpty.textContent = "暂无可查看的资料";
+    elements.graphDetail.append(detailEmpty);
+    return;
+  }
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 720 460");
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", "人物知识图谱");
+  data.nodes.forEach((node, index) => {
+    const angle = (Math.PI * 2 * index) / data.nodes.length - Math.PI / 2;
+    const x = 360 + Math.cos(angle) * Math.min(210, 90 + data.nodes.length * 20);
+    const y = 225 + Math.sin(angle) * Math.min(145, 55 + data.nodes.length * 16);
+    const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    group.setAttribute("class", "graph-node");
+    group.setAttribute("tabindex", "0");
+    group.setAttribute("transform", `translate(${x} ${y})`);
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute("r", "42");
+    const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    label.setAttribute("text-anchor", "middle");
+    label.setAttribute("dy", "5");
+    label.textContent = node.label;
+    group.append(circle, label);
+    group.addEventListener("click", () => showGraphDetail(node));
+    group.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") showGraphDetail(node); });
+    svg.append(group);
+  });
+  elements.graphCanvas.append(svg);
+  showGraphDetail(data.nodes[0]);
+}
+
+async function openGraph() {
+  elements.graphModal.hidden = false;
+  elements.graphCanvas.textContent = "正在读取知识图谱…";
+  try {
+    const response = await fetch(`${API.graph}?subject_id=${encodeURIComponent(elements.subjectId.value.trim() || "all")}`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    renderGraph(await response.json());
+  } catch (error) {
+    elements.graphCanvas.textContent = `读取知识图谱失败：${error.message}`;
+  }
+}
+
+function closeGraph() { elements.graphModal.hidden = true; }
 
 function showToast(message, type = "info") {
   const toast = document.createElement("div");
@@ -568,6 +649,11 @@ elements.addSubjectButton.addEventListener("click", () => {
   writeOption(SUBJECTS_KEY, elements.subjectId.value);
   syncIdentitySelectors();
   persistIdentity();
+});
+elements.graphButton.addEventListener("click", openGraph);
+elements.closeGraphButton.addEventListener("click", closeGraph);
+elements.graphModal.addEventListener("click", (event) => {
+  if (event.target === elements.graphModal) closeGraph();
 });
 function createNewConversation(force = false) {
   const count = readConversations().length;

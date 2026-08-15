@@ -59,6 +59,7 @@
               <button class="icon-button" id="addSubjectButton" type="button" title="添加对象" aria-label="添加对象">+</button>
             </div>
           </label>
+          <button class="secondary-button graph-button" id="graphButton" type="button">查看知识图谱</button>
         </section>
 
         <section class="side-section conversation-list-section" aria-labelledby="conversations-title">
@@ -137,6 +138,23 @@
     </div>
 
     <div class="mobile-overlay" id="mobileOverlay" hidden></div>
+    <div class="graph-modal" id="graphModal" hidden>
+      <div class="graph-dialog" role="dialog" aria-modal="true" aria-labelledby="graphTitle">
+        <header class="graph-header">
+          <div>
+            <span class="eyebrow">KNOWLEDGE GRAPH</span>
+            <h2 id="graphTitle">人物知识图谱</h2>
+          </div>
+          <button class="icon-button" id="closeGraphButton" type="button" aria-label="关闭知识图谱">×</button>
+        </header>
+        <div class="graph-body">
+          <div class="graph-canvas" id="graphCanvas"></div>
+          <aside class="graph-detail" id="graphDetail">
+            <div class="graph-detail-empty">点击人物节点查看已保存资料</div>
+          </aside>
+        </div>
+      </div>
+    </div>
     <div class="toast-region" id="toastRegion" aria-live="assertive"></div>
     <script src="app.js" defer></script>
   </body>

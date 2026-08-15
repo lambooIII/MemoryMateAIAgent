@@ -28,6 +28,11 @@ def list_knowledge_notes(subject_id: str, request: Request) -> dict:
     return {"subject_id": subject_id, "notes": notes, "count": len(notes)}
 
 
+@router.get("/knowledge/graph")
+def knowledge_graph(request: Request, subject_id: str = "all") -> dict:
+    return request.app.state.rag_service.graph(subject_id)
+
+
 @router.get("/status", response_model=StatusResponse)
 def status(request: Request) -> StatusResponse:
     settings = request.app.state.settings

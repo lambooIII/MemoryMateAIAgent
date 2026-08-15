@@ -136,6 +136,25 @@ class RagService:
             for path in sorted(subject_directory.glob("*.md"), reverse=True)
         ]
 
+    def graph(self, subject_id: str = "all") -> dict[str, list[dict[str, str]]]:
+        """Build a lightweight people graph from persisted local knowledge folders."""
+        self.settings.knowledge_dir.mkdir(parents=True, exist_ok=True)
+        nodes: list[dict[str, str]] = []
+        for directory in sorted(self.settings.knowledge_dir.iterdir()):
+            if not directory.is_dir() or directory.name.startswith("."):
+                continue
+            if subject_id not in {"", "all", "全部"} and directory.name != subject_id:
+                continue
+            paths = [path for path in directory.rglob("*") if path.is_file() and path.suffix.lower() in self.SUPPORTED_SUFFIXES]
+            if not paths:
+                continue
+            notes = []
+            for path in sorted(paths, reverse=True)[:8]:
+                text = path.read_text(encoding="utf-8")
+                notes.append({"source": path.name, "content": text[:1200]})
+            nodes.append({"id": directory.name, "label": directory.name, "notes": notes})
+        return {"nodes": nodes, "edges": []}
+
     def search(
         self,
         query: str,
