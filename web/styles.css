@@ -282,7 +282,11 @@ button:disabled {
 }
 
 .conversation-list { display: grid; gap: 6px; max-height: 220px; overflow-y: auto; }
+.side-section:has(#threadId) { display: none; }
 label.field:has(#userId), label.field:has(#subjectId) { display: none; }
+.new-conversation-button { width: 100%; }
+.conversation-capacity { color: var(--muted); font-size: 11px; text-align: right; }
+.conversation-capacity.is-warning { color: #9a6700; font-weight: 600; }
 .conversation-list-empty { color: var(--muted); font-size: 12px; padding: 8px 2px; }
 .conversation-row { display: flex; align-items: stretch; border: 1px solid transparent; border-radius: 6px; }
 .conversation-row:hover, .conversation-row.is-active { border-color: var(--line); background: var(--surface-strong); }
@@ -290,6 +294,8 @@ label.field:has(#userId), label.field:has(#subjectId) { display: none; }
 .conversation-row .conversation-item { flex: 1; min-width: 0; border: 0; }
 .conversation-rename { border: 0; padding: 0 8px; background: transparent; color: var(--muted); font-size: 11px; cursor: pointer; }
 .conversation-rename:hover { color: var(--text); }
+.conversation-delete { border: 0; padding: 0 8px 0 2px; background: transparent; color: var(--muted); font-size: 11px; cursor: pointer; }
+.conversation-delete:hover { color: var(--danger); }
 .conversation-item strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
 .conversation-item span { color: var(--muted); font-size: 11px; }
 

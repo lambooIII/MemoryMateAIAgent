@@ -11,6 +11,7 @@ const elements = {
   clearThreadButton: document.querySelector("#clearThreadButton"),
   conversation: document.querySelector("#conversation"),
   conversationList: document.querySelector("#conversationList"),
+  conversationCapacity: document.querySelector("#conversationCapacity"),
   userSelector: document.querySelector("#userSelector"),
   subjectSelector: document.querySelector("#subjectSelector"),
   addUserButton: document.querySelector("#addUserButton"),
@@ -22,6 +23,7 @@ const elements = {
   messageInput: document.querySelector("#messageInput"),
   mobileOverlay: document.querySelector("#mobileOverlay"),
   newThreadButton: document.querySelector("#newThreadButton"),
+  newConversationButton: document.querySelector("#newConversationButton"),
   refreshStatusButton: document.querySelector("#refreshStatusButton"),
   runtimeMode: document.querySelector("#runtimeMode"),
   sendButton: document.querySelector("#sendButton"),
@@ -42,6 +44,8 @@ let conversationMessages = [];
 const CONVERSATIONS_KEY = "agent-conversations-v1";
 const USERS_KEY = "agent-users-v1";
 const SUBJECTS_KEY = "agent-subjects-v1";
+const MAX_CONVERSATIONS = 50;
+const CONVERSATION_WARNING_THRESHOLD = 45;
 
 function createId(prefix) {
   const value = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -106,7 +110,7 @@ function readConversations() {
 }
 
 function saveConversations(conversations) {
-  localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(conversations.slice(0, 50)));
+  localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(conversations));
 }
 
 function saveCurrentConversation() {
@@ -131,6 +135,10 @@ function renderConversationList() {
   elements.conversationList.replaceChildren();
   const currentId = elements.threadId.value.trim();
   const conversations = readConversations();
+  if (elements.conversationCapacity) {
+    elements.conversationCapacity.textContent = `${conversations.length} / ${MAX_CONVERSATIONS}`;
+    elements.conversationCapacity.classList.toggle("is-warning", conversations.length >= CONVERSATION_WARNING_THRESHOLD);
+  }
   if (!conversations.length) {
     const empty = document.createElement("div");
     empty.className = "conversation-list-empty";
@@ -161,7 +169,19 @@ function renderConversationList() {
       saveConversations(readConversations().map((conversation) => conversation.thread_id === item.thread_id ? { ...conversation, title: title.trim() } : conversation));
       renderConversationList();
     });
-    row.append(button, rename);
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "conversation-delete";
+    remove.textContent = "删除";
+    remove.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (!window.confirm(`确定删除会话“${item.title || "无标题会话"}”吗？`)) return;
+      saveConversations(readConversations().filter((conversation) => conversation.thread_id !== item.thread_id));
+      fetch(API.thread(item.thread_id), { method: "DELETE" }).catch(() => {});
+      if (item.thread_id === elements.threadId.value.trim()) createNewConversation(true);
+      else renderConversationList();
+    });
+    row.append(button, rename, remove);
     elements.conversationList.append(row);
   });
 }
@@ -396,8 +416,11 @@ async function sendMessage(message) {
     if (!assistant.body.textContent) assistant.body.textContent = completed ? "处理完成。" : "服务未返回可显示的内容。";
   } catch (error) {
     if (error.name !== "AbortError") {
-      assistant.body.textContent = `请求失败：${error.message}`;
-      showToast(error.message, "error");
+      const message = error instanceof TypeError && error.message === "Failed to fetch"
+        ? "无法连接后端服务，请先启动项目并访问 http://127.0.0.1:8000"
+        : error.message;
+      assistant.body.textContent = `请求失败：${message}`;
+      showToast(message, "error");
     }
   } finally {
     const latest = conversationMessages[conversationMessages.length - 1];
@@ -546,13 +569,24 @@ elements.addSubjectButton.addEventListener("click", () => {
   syncIdentitySelectors();
   persistIdentity();
 });
-elements.newThreadButton.addEventListener("click", () => {
+function createNewConversation(force = false) {
+  const count = readConversations().length;
+  if (!force && count >= MAX_CONVERSATIONS) {
+    showToast(`会话已达到 ${MAX_CONVERSATIONS} 个，请先删除不需要的会话`, "error");
+    return;
+  }
   elements.threadId.value = createId("thread");
   persistIdentity();
   resetConversation();
   closeSidebar();
-  showToast("已创建新的本地会话标识", "success");
-});
+  showToast("已创建新会话", "success");
+  if (count >= CONVERSATION_WARNING_THRESHOLD) {
+    showToast(`已有 ${count} 个会话，建议整理并删除不需要的记录`);
+  }
+}
+
+elements.newThreadButton.addEventListener("click", () => createNewConversation());
+elements.newConversationButton.addEventListener("click", () => createNewConversation());
 elements.clearThreadButton.addEventListener("click", clearThread);
 elements.refreshStatusButton.addEventListener("click", checkStatus);
 elements.knowledgeFiles.addEventListener("change", () => updateSelectedFiles(elements.knowledgeFiles.files));
