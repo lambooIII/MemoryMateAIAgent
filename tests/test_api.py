@@ -1,0 +1,25 @@
+from fastapi.testclient import TestClient
+
+from app.main import app
+
+
+def test_status_is_available_without_api_key() -> None:
+    with TestClient(app) as client:
+        response = client.get("/api/status")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "configuration_required"
+    assert payload["capabilities"]["short_term_memory"] == "memory"
+
+
+def test_chat_explains_missing_model_configuration() -> None:
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/chat",
+            json={"message": "你好", "thread_id": "thread-1", "user_id": "user-1"},
+        )
+
+    assert response.status_code == 503
+    assert "MODEL" in response.json()["detail"]
+

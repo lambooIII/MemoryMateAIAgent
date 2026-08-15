@@ -1,0 +1,72 @@
+import os
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+
+from app.agents.service import AgentService
+from app.api.routes import router
+from app.core.config import PROJECT_ROOT, get_settings
+from app.core.logging import configure_logging
+from app.memory.factory import MemoryResources
+from app.models.factory import create_chat_model
+from app.rag.repository import create_vector_repository
+from app.rag.service import RagService
+
+
+def _configure_langsmith() -> None:
+    settings = get_settings()
+    os.environ["LANGSMITH_TRACING"] = str(settings.langsmith_tracing).lower()
+    os.environ["LANGSMITH_ENDPOINT"] = settings.langsmith_endpoint
+    os.environ["LANGSMITH_PROJECT"] = settings.langsmith_project
+    if settings.langsmith_api_key:
+        os.environ["LANGSMITH_API_KEY"] = settings.langsmith_api_key
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    settings = get_settings()
+    configure_logging(settings.log_level)
+    _configure_langsmith()
+
+    memory = MemoryResources(settings).open()
+    vector_repository = create_vector_repository(settings)
+    rag_service = RagService(settings, vector_repository)
+    app.state.settings = settings
+    app.state.rag_service = rag_service
+    app.state.agent_service = None
+    if settings.model_configured:
+        app.state.agent_service = AgentService(
+            settings=settings,
+            model=create_chat_model(settings),
+            checkpointer=memory.checkpointer,
+            store=memory.store,
+            rag_service=rag_service,
+        )
+    try:
+        yield
+    finally:
+        vector_repository.close()
+        memory.close()
+
+
+app = FastAPI(
+    title="Course Agent Workspace API",
+    version="0.1.0",
+    description="LangChain 课程知识点整合的 AI Agent + RAG MVP",
+    lifespan=lifespan,
+)
+app.include_router(router)
+
+web_directory = PROJECT_ROOT / "web"
+if web_directory.exists():
+    app.mount("/", StaticFiles(directory=web_directory, html=True), name="web")
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    settings = get_settings()
+    uvicorn.run("app.main:app", host=settings.app_host, port=settings.app_port, reload=True)
+

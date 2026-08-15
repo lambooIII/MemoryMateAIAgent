@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="融合 Agent、长短期记忆与 RAG 的 AI 知识工作台" />
+    <title>Agent 知识工作台</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">AI</div>
+          <div>
+            <strong>Agent 工作台</strong>
+            <span>记忆与知识检索</span>
+          </div>
+        </div>
+
+        <section class="side-section" aria-labelledby="identity-title">
+          <div class="section-heading">
+            <h2 id="identity-title">会话身份</h2>
+          </div>
+          <label class="field">
+            <span>用户 ID</span>
+            <input id="userId" type="text" autocomplete="off" maxlength="80" />
+          </label>
+          <label class="field">
+            <span>会话 ID</span>
+            <div class="input-action">
+              <input id="threadId" type="text" autocomplete="off" maxlength="80" />
+              <button class="icon-button" id="newThreadButton" type="button" title="创建新会话" aria-label="创建新会话">+</button>
+            </div>
+          </label>
+          <button class="secondary-button danger" id="clearThreadButton" type="button">清空当前会话</button>
+        </section>
+
+        <section class="side-section" aria-labelledby="knowledge-title">
+          <div class="section-heading">
+            <h2 id="knowledge-title">知识库</h2>
+            <span class="section-tag">RAG</span>
+          </div>
+          <label class="upload-zone" id="uploadZone" for="knowledgeFiles">
+            <span class="upload-symbol" aria-hidden="true">+</span>
+            <strong>添加知识文档</strong>
+            <span>可多选，格式由服务端配置决定</span>
+          </label>
+          <input id="knowledgeFiles" class="visually-hidden" type="file" multiple />
+          <div class="file-summary" id="fileSummary" aria-live="polite">尚未选择文件</div>
+          <button class="secondary-button" id="uploadButton" type="button" disabled>导入知识库</button>
+          <div class="upload-progress" id="uploadProgress" hidden>
+            <span></span>
+          </div>
+        </section>
+
+        <div class="sidebar-footer">
+          <div class="status-line">
+            <span class="status-dot is-checking" id="statusDot"></span>
+            <span id="statusText">正在检查服务</span>
+          </div>
+          <button class="text-button" id="refreshStatusButton" type="button">刷新</button>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <button class="icon-button menu-button" id="menuButton" type="button" aria-label="打开侧栏">☰</button>
+          <div>
+            <h1>AI 知识助手</h1>
+            <p>Agent · RAG · 长短期记忆</p>
+          </div>
+          <div class="model-state">
+            <span>运行模式</span>
+            <strong id="runtimeMode">读取中</strong>
+          </div>
+        </header>
+
+        <section class="conversation" id="conversation" aria-live="polite">
+          <div class="empty-state" id="emptyState">
+            <div class="empty-mark" aria-hidden="true">A</div>
+            <h2>开始一次知识对话</h2>
+            <p>询问课程知识、让 Agent 检索已导入的资料，或验证跨会话记忆。</p>
+            <div class="suggestions">
+              <button type="button" data-prompt="请介绍这个项目中 Agent、RAG 和记忆模块是如何协作的。">梳理项目架构</button>
+              <button type="button" data-prompt="请检索知识库并总结相关资料，回答时标注来源。">测试 RAG 检索</button>
+              <button type="button" data-prompt="请记住：我正在学习 LangChain，并说明你会如何使用这条长期记忆。">测试长期记忆</button>
+            </div>
+          </div>
+        </section>
+
+        <footer class="composer-area">
+          <form class="composer" id="chatForm">
+            <textarea id="messageInput" rows="1" maxlength="8000" placeholder="输入问题，Enter 发送，Shift + Enter 换行" aria-label="消息内容"></textarea>
+            <button class="send-button" id="sendButton" type="submit" aria-label="发送消息" title="发送">
+              <span aria-hidden="true">↑</span>
+            </button>
+          </form>
+          <p class="composer-hint">回答可能存在偏差，重要信息请结合来源核验。</p>
+        </footer>
+      </main>
+    </div>
+
+    <div class="mobile-overlay" id="mobileOverlay" hidden></div>
+    <div class="toast-region" id="toastRegion" aria-live="assertive"></div>
+    <script src="app.js" defer></script>
+  </body>
+</html>
