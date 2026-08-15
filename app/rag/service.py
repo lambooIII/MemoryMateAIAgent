@@ -166,6 +166,34 @@ class RagService:
             shutil.rmtree(directory)
         return removed_chunks
 
+    def merge_subject(self, source_subject_id: str, target_subject_id: str) -> int:
+        if source_subject_id in {"", "all", "全部"} or target_subject_id in {"", "all", "全部"}:
+            raise ValueError("全部对象不能作为合并来源或目标")
+        if source_subject_id == target_subject_id:
+            raise ValueError("合并来源和目标不能相同")
+        safe_source_id = re.sub(r"[^\w-]+", "_", source_subject_id, flags=re.UNICODE).strip("_")
+        source_directory = self.settings.knowledge_dir / (safe_source_id or "general")
+        if not source_directory.is_dir():
+            raise ValueError(f"来源对象“{source_subject_id}”不存在")
+        target_directory = self.subject_directory(target_subject_id)
+        merged_paths: list[Path] = []
+        for path in sorted(source_directory.iterdir()):
+            if not path.is_file() or path.suffix.lower() not in self.SUPPORTED_SUFFIXES:
+                continue
+            target = target_directory / f"merged_{safe_source_id}_{uuid4().hex[:8]}_{path.name}"
+            text = path.read_text(encoding="utf-8")
+            text = text.replace(f"# {source_subject_id}的", f"# {target_subject_id}的")
+            text = text.replace(f"- 对象 ID：{source_subject_id}", f"- 对象 ID：{target_subject_id}")
+            target.write_text(text, encoding="utf-8")
+            merged_paths.append(target)
+
+        archive_root = self.settings.knowledge_dir.parent / ".temp" / "trash" / "merged-subjects"
+        archive_root.mkdir(parents=True, exist_ok=True)
+        archive_directory = archive_root / f"{safe_source_id}_{datetime.now():%Y%m%d_%H%M%S}_{uuid4().hex[:8]}"
+        shutil.move(str(source_directory), str(archive_directory))
+        self.repository.delete_subject(source_subject_id)
+        return self.ingest_paths(merged_paths, target_subject_id) if merged_paths else 0
+
     def search(
         self,
         query: str,

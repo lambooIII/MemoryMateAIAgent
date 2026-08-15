@@ -104,4 +104,36 @@ def get_memory_tools(rag_service) -> list:
             return "尚未保存当前关系对象的资料"
         return json.dumps(item.value, ensure_ascii=False)
 
-    return [save_subject_profile, get_subject_profile]
+    @tool
+    def merge_subject(
+        source_subject_id: str,
+        target_subject_id: str,
+        runtime: ToolRuntime,
+    ) -> str:
+        """仅在用户确认两个对象是同一人后，将来源对象资料合并到目标对象并移除重复对象。"""
+        user_id = runtime.state.get("user_id", "anonymous")
+        source_namespace = ("users", user_id, "subjects", source_subject_id)
+        target_namespace = ("users", user_id, "subjects", target_subject_id)
+        source_item = runtime.store.get(source_namespace, "profile")
+        target_item = runtime.store.get(target_namespace, "profile")
+        source_profile = dict(source_item.value) if source_item else {}
+        target_profile = dict(target_item.value) if target_item else {}
+        try:
+            chunk_count = rag_service.merge_subject(source_subject_id, target_subject_id)
+        except Exception as exc:
+            return f"对象合并失败：{exc}"
+        for key, value in source_profile.items():
+            if isinstance(value, list):
+                target_profile[key] = list(dict.fromkeys([*target_profile.get(key, []), *value]))
+            elif isinstance(value, dict):
+                target_profile[key] = {**value, **target_profile.get(key, {})}
+            elif key not in target_profile or target_profile[key] in (None, ""):
+                target_profile[key] = value
+        if target_profile:
+            runtime.store.put(target_namespace, "profile", target_profile)
+        delete = getattr(runtime.store, "delete", None)
+        if source_item is not None and delete is not None:
+            delete(source_namespace, "profile")
+        return f"已将{source_subject_id}合并到{target_subject_id}，更新了 {chunk_count} 个知识片段"
+
+    return [save_subject_profile, get_subject_profile, merge_subject]
