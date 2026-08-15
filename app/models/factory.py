@@ -58,5 +58,7 @@ def create_embedding_model(settings: Settings) -> Any:
         model=settings.embedding_model,
         api_key=settings.embedding_api_key,
         base_url=settings.embedding_base_url or None,
+        dimensions=settings.embedding_dimension,
+        # Bailian's OpenAI-compatible endpoint accepts raw strings, not token arrays.
+        check_embedding_ctx_length=False,
     )
-
