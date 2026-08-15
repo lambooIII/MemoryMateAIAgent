@@ -29,9 +29,11 @@ class StatusResponse(BaseModel):
 
 
 class UserProfile(BaseModel):
-    """Agent tool schema for durable user facts."""
+    """恋爱对象资料和稳定偏好的结构化输入。"""
 
-    name: str | None = Field(default=None, description="用户姓名")
-    occupation: str | None = Field(default=None, description="用户职业")
-    preferences: list[str] = Field(default_factory=list, description="用户明确表达的偏好")
-
+    partner_name: str | None = Field(default=None, description="对象姓名")
+    birthday: str | None = Field(default=None, description="对象生日，建议使用 YYYY-MM-DD")
+    occupation: str | None = Field(default=None, description="对象职业或工作信息")
+    preferences: list[str] = Field(default_factory=list, description="对象喜欢的事物")
+    dislikes: list[str] = Field(default_factory=list, description="对象不喜欢或需要避开的事物")
+    important_dates: dict[str, str] = Field(default_factory=dict, description="纪念日等重要日期")

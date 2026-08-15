@@ -114,7 +114,7 @@ function createMessage(role, text = "") {
   const content = document.createElement("div");
   const roleLabel = document.createElement("div");
   roleLabel.className = "message-role";
-  roleLabel.textContent = role === "assistant" ? "知识助手" : "你";
+  roleLabel.textContent = role === "assistant" ? "恋爱助手" : "你";
   const body = document.createElement("div");
   body.className = "message-text";
   body.textContent = text;

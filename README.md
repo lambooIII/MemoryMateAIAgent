@@ -1,6 +1,6 @@
-# Course Agent Workspace
+# LoveMemory AI
 
-这是一个根据 LangChain 1.2 课程代码整理的教学型 AI Agent + RAG MVP。项目重点是完整走通模型、工具、Agent、中间件、记忆和知识库检索流程，并提供一个可以直接操作的网页工作台。
+这是一个根据 LangChain 1.2 课程代码整理的教学型私人恋爱记忆助手。它可以检索恋爱备忘录、查询对象资料、记住用户确认过的偏好，并在需要时调用实时工具。
 
 ## 已覆盖的课程知识点
 
@@ -16,6 +16,8 @@
 - 内存向量库 / Milvus 切换
 - LangSmith 可选追踪
 - FastAPI、SSE 和简单网页工作台
+
+`knowledge/` 默认保持为空，用户可以在网页中上传 `.txt`/`.md` 恋爱笔记，也可以在聊天中补充姓名、生日、喜好、雷区和重要日期。聊天提取到的新信息应先由用户确认，再写入长期记忆和 RAG 索引。
 
 ## 项目结构
 
@@ -86,7 +88,7 @@ conda run --no-capture-output -n langchain1.2 python -m uvicorn app.main:app --h
 
 ## 3. 体验 RAG 流程
 
-将 UTF-8 编码的 `.txt` 或 `.md` 文件放入 `knowledge`，然后在工作台点击“导入知识库”，或者执行：
+将 UTF-8 编码的 `.txt` 或 `.md` 恋爱笔记放入 `knowledge`，然后在工作台点击“保存到备忘录”，或者执行：
 
 ```powershell
 conda run --no-capture-output -n langchain1.2 python scripts/ingest.py
@@ -158,4 +160,4 @@ conda run --no-capture-output -n langchain1.2 python -m pytest -q
 
 ## 简历描述参考
 
-基于 LangChain 1.2 与 FastAPI 开发可配置的 AI Agent + RAG 知识助手，整合工具调用、SSE 流式响应、长短期记忆、Pydantic 结构化参数及中间件机制；通过工厂模式支持内存/PostgreSQL 记忆和内存/Milvus 向量检索切换，实现文档切分、Embedding、语义检索与来源引用的完整知识库问答链路。
+基于 LangChain 1.2 与 FastAPI 开发隐私优先的私人恋爱记忆助手，整合对象资料、恋爱备忘录、RAG 检索、工具调用、SSE 流式响应和长短期记忆；通过结构化输出提取对象喜好与雷区，并支持内存/PostgreSQL 记忆和内存/Milvus 向量检索切换。
