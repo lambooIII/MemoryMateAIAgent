@@ -44,7 +44,11 @@ def get_memory_tools(rag_service) -> list:
         if runtime is None:
             return "无法访问记忆运行时"
         user_id = runtime.state.get("user_id", "anonymous")
-        subject_id = runtime.state.get("subject_id", "partner")
+        subject_id = runtime.state.get("subject_id", "all")
+        if subject_id in {"", "all", "全部"}:
+            subject_id = (relation or name or "").strip()
+            if not subject_id:
+                return "当前知识范围是全部对象，无法判断资料属于谁。请先选择或新增对象后再保存。"
         namespace = ("users", user_id, "subjects", subject_id)
         existing = runtime.store.get(namespace, "profile")
         profile = dict(existing.value) if existing else {}
@@ -92,7 +96,9 @@ def get_memory_tools(rag_service) -> list:
     def get_subject_profile(runtime: ToolRuntime) -> str:
         """查询当前关系对象的资料、喜好、雷区和重要日期。"""
         user_id = runtime.state.get("user_id", "anonymous")
-        subject_id = runtime.state.get("subject_id", "partner")
+        subject_id = runtime.state.get("subject_id", "all")
+        if subject_id in {"", "all", "全部"}:
+            return "当前知识范围是全部对象，请选择具体对象后查询结构化档案。"
         item = runtime.store.get(("users", user_id, "subjects", subject_id), "profile")
         if item is None:
             return "尚未保存当前关系对象的资料"

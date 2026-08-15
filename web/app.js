@@ -285,7 +285,10 @@ function renderGraph(data) {
     label.setAttribute("text-anchor", "middle");
     label.setAttribute("dy", "5");
     label.textContent = node.label;
-    group.append(circle, label);
+    const core = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    core.setAttribute("class", "graph-node-core");
+    core.append(circle, label);
+    group.append(core);
     group.addEventListener("click", () => showGraphDetail(node));
     group.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") showGraphDetail(node); });
     svg.append(group);
