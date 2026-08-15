@@ -4,6 +4,7 @@ from typing import Any, NotRequired
 from langchain.agents import AgentState, create_agent
 from langchain_core.messages import AIMessageChunk
 from langchain_core.tools import tool
+from langgraph.prebuilt import ToolRuntime
 
 from app.core.config import Settings
 from app.rag.service import RagService
@@ -64,10 +65,11 @@ class AgentService:
         rag_service = self.rag_service
 
         @tool
-        def retrieve_knowledge(query: str) -> str:
+        def retrieve_knowledge(query: str, runtime: ToolRuntime) -> str:
             """从私人关系备忘录中检索家人、恋人或朋友的资料、经历、喜好和雷区。"""
             try:
-                return rag_service.format_context(query)
+                subject_id = runtime.state.get("subject_id", "general")
+                return rag_service.format_context(query, subject_id)
             except Exception as exc:
                 return f"知识库检索失败：{exc}"
 

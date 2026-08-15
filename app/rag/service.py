@@ -29,7 +29,7 @@ class RagService:
             self._embeddings = create_embedding_model(self.settings)
         return self._embeddings
 
-    def ingest_directory(self, directory: Path | None = None) -> int:
+    def ingest_directory(self, directory: Path | None = None, subject_id: str = "general") -> int:
         source_directory = directory or self.settings.knowledge_dir
         source_directory.mkdir(parents=True, exist_ok=True)
         paths = [
@@ -37,9 +37,9 @@ class RagService:
             for path in source_directory.rglob("*")
             if path.is_file() and path.suffix.lower() in self.SUPPORTED_SUFFIXES
         ]
-        return self.ingest_paths(paths)
+        return self.ingest_paths(paths, subject_id)
 
-    def ingest_paths(self, paths: list[Path]) -> int:
+    def ingest_paths(self, paths: list[Path], subject_id: str = "general") -> int:
         documents: list[Document] = []
         for path in paths:
             if path.suffix.lower() not in self.SUPPORTED_SUFFIXES:
@@ -59,17 +59,23 @@ class RagService:
                     chunk_id=digest,
                     text=document.page_content,
                     source=source,
+                    subject_id=subject_id,
                 )
             )
         vectors = self.embeddings.embed_documents([chunk.text for chunk in chunks]) if chunks else []
         return self.repository.upsert(chunks, vectors)
 
-    def search(self, query: str, limit: int | None = None) -> list[KnowledgeChunk]:
+    def search(
+        self,
+        query: str,
+        subject_id: str = "general",
+        limit: int | None = None,
+    ) -> list[KnowledgeChunk]:
         vector = self.embeddings.embed_query(query)
-        return self.repository.search(vector, limit or self.settings.rag_top_k)
+        return self.repository.search(vector, limit or self.settings.rag_top_k, subject_id)
 
-    def format_context(self, query: str) -> str:
-        hits = self.search(query)
+    def format_context(self, query: str, subject_id: str = "general") -> str:
+        hits = self.search(query, subject_id)
         if not hits:
             return "知识库中没有检索到相关内容。"
         blocks = []
@@ -82,4 +88,3 @@ class RagService:
 
     def count(self) -> int:
         return self.repository.count()
-

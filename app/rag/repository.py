@@ -1,4 +1,5 @@
 import hashlib
+import json
 import math
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -11,13 +12,14 @@ class KnowledgeChunk:
     chunk_id: str
     text: str
     source: str
+    subject_id: str = "general"
     score: float | None = None
 
 
 class VectorRepository(Protocol):
     def upsert(self, chunks: list[KnowledgeChunk], vectors: list[list[float]]) -> int: ...
 
-    def search(self, vector: list[float], limit: int) -> list[KnowledgeChunk]: ...
+    def search(self, vector: list[float], limit: int, subject_id: str) -> list[KnowledgeChunk]: ...
 
     def count(self) -> int: ...
 
@@ -35,15 +37,17 @@ class InMemoryVectorRepository:
             self._entries[chunk.chunk_id] = (chunk, vector)
         return len(chunks)
 
-    def search(self, vector: list[float], limit: int) -> list[KnowledgeChunk]:
+    def search(self, vector: list[float], limit: int, subject_id: str) -> list[KnowledgeChunk]:
         scored = [
             KnowledgeChunk(
                 chunk_id=chunk.chunk_id,
                 text=chunk.text,
                 source=chunk.source,
+                subject_id=chunk.subject_id,
                 score=_cosine_similarity(vector, stored_vector),
             )
             for chunk, stored_vector in self._entries.values()
+            if chunk.subject_id == subject_id
         ]
         return sorted(scored, key=lambda item: item.score or -1, reverse=True)[:limit]
 
@@ -92,6 +96,7 @@ class MilvusVectorRepository:
                     "text": chunk.text,
                     "source": chunk.source,
                     "chunk_id": chunk.chunk_id,
+                    "subject_id": chunk.subject_id,
                 }
             )
         if data:
@@ -99,18 +104,20 @@ class MilvusVectorRepository:
             self._client.flush(collection_name=self._collection)
         return len(data)
 
-    def search(self, vector: list[float], limit: int) -> list[KnowledgeChunk]:
+    def search(self, vector: list[float], limit: int, subject_id: str) -> list[KnowledgeChunk]:
         results = self._client.search(
             collection_name=self._collection,
             data=[vector],
             limit=limit,
-            output_fields=["text", "source", "chunk_id"],
+            filter=f"subject_id == {json.dumps(subject_id, ensure_ascii=False)}",
+            output_fields=["text", "source", "chunk_id", "subject_id"],
         )
         return [
             KnowledgeChunk(
                 chunk_id=str(hit["entity"]["chunk_id"]),
                 text=hit["entity"]["text"],
                 source=hit["entity"].get("source", "unknown"),
+                subject_id=hit["entity"].get("subject_id", "general"),
                 score=float(hit["distance"]),
             )
             for hit in (results[0] if results else [])
@@ -146,4 +153,3 @@ def _cosine_similarity(left: list[float], right: list[float]) -> float:
 def _stable_int_id(chunk_id: str) -> int:
     digest = hashlib.sha256(chunk_id.encode("utf-8")).digest()
     return int.from_bytes(digest[:8], "big") & ((1 << 63) - 1)
-

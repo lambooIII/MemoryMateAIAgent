@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 
@@ -108,6 +108,7 @@ async def reset_thread_compatibility(thread_id: str, request: Request) -> None:
 async def ingest_knowledge(
     request: Request,
     files: list[UploadFile] = File(default=[]),
+    subject_id: str = Form(default="general"),
 ) -> dict[str, int]:
     rag_service = request.app.state.rag_service
     settings = request.app.state.settings
@@ -130,9 +131,9 @@ async def ingest_knowledge(
                 except UnicodeDecodeError as exc:
                     raise HTTPException(status_code=400, detail="文件必须使用 UTF-8 编码") from exc
                 paths.append(target)
-            count = await run_in_threadpool(rag_service.ingest_paths, paths)
+            count = await run_in_threadpool(rag_service.ingest_paths, paths, subject_id)
         else:
-            count = await run_in_threadpool(rag_service.ingest_directory)
+            count = await run_in_threadpool(rag_service.ingest_directory, None, subject_id)
     except HTTPException:
         raise
     except Exception as exc:

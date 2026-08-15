@@ -323,6 +323,7 @@ async function uploadKnowledge() {
   if (!files.length) return;
   const formData = new FormData();
   files.forEach((file) => formData.append("files", file));
+  formData.append("subject_id", elements.subjectId.value.trim());
   elements.uploadButton.disabled = true;
   elements.uploadProgress.hidden = false;
   try {
