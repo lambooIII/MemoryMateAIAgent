@@ -80,6 +80,13 @@ EMBEDDING_DIMENSION=1024
 conda run --no-capture-output -n langchain1.2 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
+如果已经激活 `langchain1.2` 环境，也可以直接运行：
+
+```powershell
+conda activate langchain1.2
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
 浏览器打开 `http://127.0.0.1:8000`。接口文档位于 `http://127.0.0.1:8000/docs`。
 
 学习后端流程时，也可以只访问 `http://127.0.0.1:8000/docs`，用 Swagger 调用接口，不需要先理解网页代码。
