@@ -25,6 +25,8 @@ class VectorRepository(Protocol):
 
     def close(self) -> None: ...
 
+    def delete_subject(self, subject_id: str) -> int: ...
+
 
 class InMemoryVectorRepository:
     def __init__(self) -> None:
@@ -56,6 +58,12 @@ class InMemoryVectorRepository:
 
     def close(self) -> None:
         self._entries.clear()
+
+    def delete_subject(self, subject_id: str) -> int:
+        keys = [key for key, (chunk, _) in self._entries.items() if chunk.subject_id == subject_id]
+        for key in keys:
+            del self._entries[key]
+        return len(keys)
 
 
 class MilvusVectorRepository:
@@ -129,6 +137,14 @@ class MilvusVectorRepository:
 
     def close(self) -> None:
         self._client.close()
+
+    def delete_subject(self, subject_id: str) -> int:
+        result = self._client.delete(
+            collection_name=self._collection,
+            filter=f"subject_id == {json.dumps(subject_id, ensure_ascii=False)}",
+        )
+        self._client.flush(collection_name=self._collection)
+        return int(result.get("delete_count", 0)) if isinstance(result, dict) else 0
 
 
 def create_vector_repository(settings: Settings) -> VectorRepository:

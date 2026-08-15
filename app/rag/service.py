@@ -1,5 +1,6 @@
 import hashlib
 import re
+import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -154,6 +155,16 @@ class RagService:
                 notes.append({"source": path.name, "content": text[:1200]})
             nodes.append({"id": directory.name, "label": directory.name, "notes": notes})
         return {"nodes": nodes, "edges": []}
+
+    def delete_subject(self, subject_id: str) -> int:
+        if subject_id in {"", "all", "全部"}:
+            raise ValueError("不能删除全部对象")
+        safe_subject_id = re.sub(r"[^\w-]+", "_", subject_id, flags=re.UNICODE).strip("_") or "general"
+        directory = self.settings.knowledge_dir / safe_subject_id
+        removed_chunks = self.repository.delete_subject(subject_id)
+        if directory.exists():
+            shutil.rmtree(directory)
+        return removed_chunks
 
     def search(
         self,

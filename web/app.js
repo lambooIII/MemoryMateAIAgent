@@ -22,6 +22,7 @@ const elements = {
   subjectSelector: document.querySelector("#subjectSelector"),
   addUserButton: document.querySelector("#addUserButton"),
   addSubjectButton: document.querySelector("#addSubjectButton"),
+  deleteSubjectButton: document.querySelector("#deleteSubjectButton"),
   emptyState: document.querySelector("#emptyState"),
   fileSummary: document.querySelector("#fileSummary"),
   knowledgeFiles: document.querySelector("#knowledgeFiles"),
@@ -50,6 +51,7 @@ let conversationMessages = [];
 const CONVERSATIONS_KEY = "agent-conversations-v1";
 const USERS_KEY = "agent-users-v1";
 const SUBJECTS_KEY = "agent-subjects-v1";
+const USER_PROFILES_KEY = "agent-user-profiles-v1";
 const MAX_CONVERSATIONS = 50;
 const CONVERSATION_WARNING_THRESHOLD = 45;
 
@@ -83,7 +85,7 @@ function syncSelect(select, options, selected) {
   [...new Set(options)].forEach((value) => {
     const option = document.createElement("option");
     option.value = value;
-    option.textContent = value === "all" ? "全部对象" : value;
+    option.textContent = value === "all" ? "全部对象（检索所有人的资料）" : value;
     select.append(option);
   });
   select.value = selected;
@@ -93,8 +95,25 @@ function syncIdentitySelectors() {
   writeOption(USERS_KEY, elements.userId.value);
   writeOption(SUBJECTS_KEY, elements.subjectId.value);
   writeOption(SUBJECTS_KEY, "all");
-  syncSelect(elements.userSelector, readOptionList(USERS_KEY, [elements.userId.value]), elements.userId.value);
+  const profiles = readUserProfiles();
+  if (!profiles.some((profile) => profile.id === elements.userId.value)) {
+    profiles.push({ id: elements.userId.value, label: `账号 ${profiles.length + 1}` });
+    writeUserProfiles(profiles);
+  }
+  syncSelect(elements.userSelector, profiles.map((profile) => profile.label), profiles.find((profile) => profile.id === elements.userId.value)?.label);
+  [...elements.userSelector.options].forEach((option, index) => { option.value = profiles[index].id; });
   syncSelect(elements.subjectSelector, readOptionList(SUBJECTS_KEY, ["all"]), elements.subjectId.value);
+}
+
+function readUserProfiles() {
+  try {
+    const profiles = JSON.parse(localStorage.getItem(USER_PROFILES_KEY) || "[]");
+    return Array.isArray(profiles) ? profiles : [];
+  } catch { return []; }
+}
+
+function writeUserProfiles(profiles) {
+  localStorage.setItem(USER_PROFILES_KEY, JSON.stringify(profiles.slice(0, 50)));
 }
 
 function persistIdentity() {
@@ -365,6 +384,27 @@ function createMessage(role, text = "", record = true) {
   return { message, body, content };
 }
 
+function createProcessPanel(content) {
+  const details = document.createElement("details");
+  details.className = "process-panel";
+  details.open = true;
+  const summary = document.createElement("summary");
+  summary.textContent = "执行过程";
+  const list = document.createElement("div");
+  list.className = "process-steps";
+  details.append(summary, list);
+  content.insertBefore(details, content.querySelector(".message-text"));
+  return {
+    add(text) {
+      const step = document.createElement("div");
+      step.className = "process-step";
+      step.textContent = text;
+      list.append(step);
+    },
+    finish() { details.open = false; },
+  };
+}
+
 function sourceTitle(source, index) {
   if (typeof source === "string") return source;
   return source.title || source.source || source.file_name || source.filename || `来源 ${index + 1}`;
@@ -459,6 +499,9 @@ async function sendMessage(message) {
   const payload = { ...getChatPayload(), message };
   createMessage("user", message);
   const assistant = createMessage("assistant");
+  const process = createProcessPanel(assistant.content);
+  process.add("已接收问题，正在分析请求");
+  process.add("正在检索本地知识库");
   assistant.message.classList.add("is-streaming");
   elements.sendButton.disabled = true;
   elements.messageInput.disabled = true;
@@ -480,6 +523,7 @@ async function sendMessage(message) {
     await consumeEventStream(response, {
       onEvent(event) {
         if (event.type === "token") {
+          if (!assistant.body.textContent) process.add("资料检索完成，正在生成回答");
           assistant.body.textContent += extractToken(event);
           const latest = conversationMessages[conversationMessages.length - 1];
           if (latest?.role === "assistant") latest.text = assistant.body.textContent;
@@ -495,6 +539,7 @@ async function sendMessage(message) {
       },
     });
     if (!assistant.body.textContent) assistant.body.textContent = completed ? "处理完成。" : "服务未返回可显示的内容。";
+    process.add("回答生成完成");
   } catch (error) {
     if (error.name !== "AbortError") {
       const message = error instanceof TypeError && error.message === "Failed to fetch"
@@ -508,6 +553,7 @@ async function sendMessage(message) {
     if (latest?.role === "assistant") latest.text = assistant.body.textContent;
     saveCurrentConversation();
     assistant.message.classList.remove("is-streaming");
+    process.finish();
     requestController = null;
     elements.sendButton.disabled = false;
     elements.messageInput.disabled = false;
@@ -704,6 +750,33 @@ document.querySelectorAll("[data-prompt]").forEach((button) => {
   });
 });
 
+const cleanUserButton = elements.addUserButton.cloneNode(true);
+elements.addUserButton.replaceWith(cleanUserButton);
+elements.addUserButton = cleanUserButton;
+elements.addUserButton.addEventListener("click", () => {
+  const label = window.prompt("输入账号显示名称，例如：林波");
+  if (!label?.trim()) return;
+  const profile = { id: createId("user"), label: label.trim() };
+  writeUserProfiles([...readUserProfiles().filter((item) => item.label !== profile.label), profile]);
+  elements.userId.value = profile.id;
+  syncIdentitySelectors();
+  persistIdentity();
+});
+elements.deleteSubjectButton.addEventListener("click", async () => {
+  const subjectId = elements.subjectId.value.trim();
+  if (!subjectId || subjectId === "all") {
+    showToast("全部对象是固定范围，不能删除", "error");
+    return;
+  }
+  if (!window.confirm(`确定删除“${subjectId}”及其本地资料吗？此操作不可恢复。`)) return;
+  const response = await fetch(`/api/knowledge/subjects/${encodeURIComponent(subjectId)}`, { method: "DELETE" });
+  if (!response.ok) { showToast("删除对象资料失败", "error"); return; }
+  localStorage.setItem(SUBJECTS_KEY, JSON.stringify(readOptionList(SUBJECTS_KEY, []).filter((item) => item !== subjectId)));
+  elements.subjectId.value = "all";
+  syncIdentitySelectors();
+  persistIdentity();
+  showToast(`已删除${subjectId}及其资料`, "success");
+});
 loadIdentity();
 const existingConversation = readConversations().find((item) => item.thread_id === elements.threadId.value.trim());
 if (existingConversation) switchConversation(existingConversation.thread_id);

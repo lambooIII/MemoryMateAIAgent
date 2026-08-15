@@ -33,6 +33,17 @@ def knowledge_graph(request: Request, subject_id: str = "all") -> dict:
     return request.app.state.rag_service.graph(subject_id)
 
 
+@router.delete("/knowledge/subjects/{subject_id}")
+async def delete_knowledge_subject(subject_id: str, request: Request) -> dict[str, int | str]:
+    try:
+        removed_chunks = await run_in_threadpool(request.app.state.rag_service.delete_subject, subject_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"删除对象资料失败：{exc}") from exc
+    return {"subject_id": subject_id, "removed_chunks": removed_chunks}
+
+
 @router.get("/status", response_model=StatusResponse)
 def status(request: Request) -> StatusResponse:
     settings = request.app.state.settings
