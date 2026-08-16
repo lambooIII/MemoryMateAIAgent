@@ -17,6 +17,18 @@ from app.rag.repository import KnowledgeChunk, VectorRepository
 class RagService:
     SUPPORTED_SUFFIXES = {".txt", ".md"}
 
+    @staticmethod
+    def infer_subject_id(text: str) -> str | None:
+        """Extract a person's name from explicit resume/profile fields."""
+        field_match = re.search(r"(?m)^\s*(?:[-*]\s*)?姓名\s*[：:]\s*([^\n｜|,，;；]{2,40})\s*$", text)
+        if field_match:
+            return field_match.group(1).strip()
+        heading_match = re.search(
+            r"(?m)^#{1,6}\s+([^\n（(｜|—-]{2,40})(?:（[^）]+）|\([^)]*\))?\s*[｜|—-]+\s*个人信息\s*$",
+            text,
+        )
+        return heading_match.group(1).strip() if heading_match else None
+
     def __init__(self, settings: Settings, repository: VectorRepository) -> None:
         self.settings = settings
         self.repository = repository
@@ -137,10 +149,12 @@ class RagService:
             for path in sorted(subject_directory.glob("*.md"), reverse=True)
         ]
 
-    def graph(self, subject_id: str = "all") -> dict[str, list[dict[str, str]]]:
+    def graph(self, subject_id: str = "all") -> dict[str, list[dict[str, Any]]]:
         """Build a lightweight people graph from persisted local knowledge folders."""
         self.settings.knowledge_dir.mkdir(parents=True, exist_ok=True)
-        nodes: list[dict[str, str]] = []
+        nodes: list[dict[str, Any]] = []
+        relations: dict[str, str] = {}
+        self_ids: list[str] = []
         for directory in sorted(self.settings.knowledge_dir.iterdir()):
             if not directory.is_dir() or directory.name.startswith("."):
                 continue
@@ -150,11 +164,29 @@ class RagService:
             if not paths:
                 continue
             notes = []
+            full_texts: list[str] = []
             for path in sorted(paths, reverse=True)[:8]:
                 text = path.read_text(encoding="utf-8")
-                notes.append({"source": path.name, "content": text[:1200]})
-            nodes.append({"id": directory.name, "label": directory.name, "notes": notes})
-        return {"nodes": nodes, "edges": []}
+                full_texts.append(text)
+                notes.append({"source": path.name, "content": text})
+            combined_text = "\n".join(full_texts)
+            relation_match = re.search(r"(?m)^-\s*关系\s*[：:]\s*(.+?)\s*$", combined_text)
+            if relation_match:
+                relation = relation_match.group(1).strip()
+                relations[directory.name] = re.sub(r"[（(][^）)]*[）)]", "", relation).strip() or relation
+            is_self = "个人信息" in combined_text and directory.name in combined_text
+            if is_self:
+                self_ids.append(directory.name)
+            nodes.append({"id": directory.name, "label": directory.name, "notes": notes, "is_self": is_self})
+
+        node_ids = {node["id"] for node in nodes}
+        self_id = next((item for item in self_ids if item in node_ids), None)
+        edges = [
+            {"source": self_id, "target": node_id, "label": relation}
+            for node_id, relation in relations.items()
+            if self_id and node_id in node_ids and node_id != self_id
+        ]
+        return {"nodes": nodes, "edges": edges}
 
     def delete_subject(self, subject_id: str) -> int:
         if subject_id in {"", "all", "全部"}:

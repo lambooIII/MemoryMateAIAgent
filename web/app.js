@@ -291,10 +291,38 @@ function renderGraph(data) {
   svg.setAttribute("viewBox", "0 0 720 460");
   svg.setAttribute("role", "img");
   svg.setAttribute("aria-label", "人物知识图谱");
+  const edges = data.edges || [];
+  const selfNode = data.nodes.find((node) => node.is_self);
+  const positions = new Map();
+  const surroundingNodes = selfNode ? data.nodes.filter((node) => node.id !== selfNode.id) : data.nodes;
+  if (selfNode) positions.set(selfNode.id, { x: 360, y: 225 });
+  surroundingNodes.forEach((node, index) => {
+    const angle = (Math.PI * 2 * index) / surroundingNodes.length - Math.PI / 2;
+    positions.set(node.id, {
+      x: data.nodes.length === 1 ? 360 : 360 + Math.cos(angle) * Math.min(220, 100 + data.nodes.length * 22),
+      y: data.nodes.length === 1 ? 225 : 225 + Math.sin(angle) * Math.min(150, 65 + data.nodes.length * 18),
+    });
+  });
+  edges.forEach((edge) => {
+    const source = positions.get(edge.source);
+    const target = positions.get(edge.target);
+    if (!source || !target) return;
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("class", "graph-edge");
+    line.setAttribute("x1", source.x);
+    line.setAttribute("y1", source.y);
+    line.setAttribute("x2", target.x);
+    line.setAttribute("y2", target.y);
+    const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    label.setAttribute("class", "graph-edge-label");
+    label.setAttribute("x", (source.x + target.x) / 2);
+    label.setAttribute("y", (source.y + target.y) / 2 - 7);
+    label.setAttribute("text-anchor", "middle");
+    label.textContent = edge.label;
+    svg.append(line, label);
+  });
   data.nodes.forEach((node, index) => {
-    const angle = (Math.PI * 2 * index) / data.nodes.length - Math.PI / 2;
-    const x = data.nodes.length === 1 ? 360 : 360 + Math.cos(angle) * Math.min(210, 90 + data.nodes.length * 20);
-    const y = data.nodes.length === 1 ? 225 : 225 + Math.sin(angle) * Math.min(145, 55 + data.nodes.length * 16);
+    const { x, y } = positions.get(node.id);
     const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
     group.setAttribute("class", "graph-node");
     group.setAttribute("tabindex", "0");
@@ -330,7 +358,7 @@ async function openGraph() {
   elements.graphModal.hidden = false;
   elements.graphCanvas.textContent = "正在读取知识图谱…";
   try {
-    const response = await fetch(`${API.graph}?subject_id=${encodeURIComponent(elements.subjectId.value.trim() || "all")}`);
+    const response = await fetch(`${API.graph}?subject_id=all`);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     renderGraph(await response.json());
   } catch (error) {
@@ -674,7 +702,14 @@ async function uploadKnowledge() {
     const body = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(body.detail || body.message || `导入失败（${response.status}）`);
     const count = body.ingested_chunks ?? body.documents ?? body.files ?? body.count ?? files.length;
-    showToast(`知识库导入完成，共处理 ${count} 项`, "success");
+    if (body.subject_id) {
+      elements.subjectId.value = body.subject_id;
+      writeOption(SUBJECTS_KEY, body.subject_id);
+      syncIdentitySelectors();
+      persistIdentity();
+    }
+    await syncSubjectsFromKnowledge();
+    showToast(`已导入到“${body.subject_id || elements.subjectId.value}”，共处理 ${count} 个知识片段`, "success");
     elements.knowledgeFiles.value = "";
     updateSelectedFiles(elements.knowledgeFiles.files);
   } catch (error) {

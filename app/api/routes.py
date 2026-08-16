@@ -131,37 +131,58 @@ async def reset_thread_compatibility(thread_id: str, request: Request) -> None:
 async def ingest_knowledge(
     request: Request,
     files: list[UploadFile] = File(default=[]),
-    subject_id: str = Form(default="general"),
-) -> dict[str, int]:
+    subject_id: str = Form(default="all"),
+) -> dict[str, int | str]:
     rag_service = request.app.state.rag_service
     settings = request.app.state.settings
     try:
         if files:
-            subject_directory = rag_service.subject_directory(subject_id)
-            paths: list[Path] = []
+            decoded_files: list[tuple[str, str]] = []
+            inferred_subjects: set[str] = set()
             for file in files:
                 suffix = Path(file.filename or "").suffix.lower()
                 if suffix not in {".txt", ".md"}:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="MVP 仅支持 UTF-8 编码的 .txt 和 .md 文件",
-                    )
-                safe_name = Path(file.filename or f"upload{suffix}").name
-                target = subject_directory / safe_name
-                content = await file.read()
+                    raise HTTPException(status_code=400, detail="MVP 仅支持 UTF-8 编码的 .txt 和 .md 文件")
                 try:
-                    target.write_text(content.decode("utf-8"), encoding="utf-8")
+                    text = (await file.read()).decode("utf-8")
                 except UnicodeDecodeError as exc:
                     raise HTTPException(status_code=400, detail="文件必须使用 UTF-8 编码") from exc
+                decoded_files.append((Path(file.filename or f"upload{suffix}").name, text))
+                inferred_subject = rag_service.infer_subject_id(text)
+                if inferred_subject:
+                    inferred_subjects.add(inferred_subject)
+
+            effective_subject_id = subject_id.strip()
+            if effective_subject_id in {"", "all", "全部"}:
+                if len(inferred_subjects) != 1:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="在全部人物范围上传时，需要文件包含明确且一致的“姓名”或“姓名 - 个人信息”标题",
+                    )
+                effective_subject_id = inferred_subjects.pop()
+
+            subject_directory = rag_service.subject_directory(effective_subject_id)
+            paths: list[Path] = []
+            for safe_name, text in decoded_files:
+                target = subject_directory / safe_name
+                target.write_text(text, encoding="utf-8")
                 paths.append(target)
-            count = await run_in_threadpool(rag_service.ingest_paths, paths, subject_id)
+            count = await run_in_threadpool(rag_service.ingest_paths, paths, effective_subject_id)
         else:
-            count = await run_in_threadpool(rag_service.ingest_directory, None, subject_id)
+            effective_subject_id = subject_id.strip()
+            if effective_subject_id in {"", "all", "全部"}:
+                raise HTTPException(status_code=400, detail="重新导入前请先选择具体人物")
+            directory = rag_service.subject_directory(effective_subject_id)
+            count = await run_in_threadpool(rag_service.ingest_directory, directory, effective_subject_id)
     except HTTPException:
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"知识库导入失败：{exc}") from exc
-    return {"ingested_chunks": count, "total_chunks": rag_service.count()}
+    return {
+        "subject_id": effective_subject_id,
+        "ingested_chunks": count,
+        "total_chunks": rag_service.count(),
+    }
 
 
 @router.post("/knowledge/upload")
