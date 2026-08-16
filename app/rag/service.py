@@ -1,4 +1,5 @@
 import hashlib
+import json
 import re
 import shutil
 from datetime import datetime
@@ -171,7 +172,16 @@ class RagService:
                 notes.append({"source": path.name, "content": text})
             combined_text = "\n".join(full_texts)
             relation_match = re.search(r"(?m)^-\s*关系\s*[：:]\s*(.+?)\s*$", combined_text)
-            if relation_match:
+            graph_config_path = directory / ".graph.json"
+            show_relation = True
+            if graph_config_path.is_file():
+                try:
+                    show_relation = json.loads(graph_config_path.read_text(encoding="utf-8")).get(
+                        "show_relation", True
+                    )
+                except (json.JSONDecodeError, OSError):
+                    show_relation = True
+            if relation_match and show_relation:
                 relation = relation_match.group(1).strip()
                 relations[directory.name] = re.sub(r"[（(][^）)]*[）)]", "", relation).strip() or relation
             is_self = "个人信息" in combined_text and directory.name in combined_text

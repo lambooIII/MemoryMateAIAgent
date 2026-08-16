@@ -69,3 +69,12 @@ def test_graph_connects_self_to_people_by_relation() -> None:
         ("况佳元", "同门"),
         ("肖越豪", "对象"),
     }
+
+    (knowledge_dir / "肖越豪" / ".graph.json").write_text(
+        '{"show_relation": false}',
+        encoding="utf-8",
+    )
+
+    private_graph = service.graph()
+
+    assert {edge["target"] for edge in private_graph["edges"]} == {"余锡雄", "况佳元"}
