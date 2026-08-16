@@ -48,6 +48,8 @@ const elements = {
 
 let requestController = null;
 let conversationMessages = [];
+let backendCompatible = false;
+let backendWarningShown = false;
 const CONVERSATIONS_KEY = "agent-conversations-v1";
 const USERS_KEY = "agent-users-v1";
 const SUBJECTS_KEY = "agent-subjects-v1";
@@ -368,9 +370,21 @@ async function checkStatus() {
     const data = await response.json();
     const healthy = data.status !== "error" && data.healthy !== false;
     const configured = data.configured !== false;
+    backendCompatible = data.capabilities?.knowledge_identity_mode === "person_name";
+    if (!backendCompatible) {
+      setStatus("checking", "后端版本待重启");
+      elements.runtimeMode.textContent = "请重启后端服务";
+      if (!backendWarningShown) {
+        showToast("当前后端仍是旧版本，请重启服务后再聊天或保存资料", "error");
+        backendWarningShown = true;
+      }
+      return;
+    }
+    backendWarningShown = false;
     setStatus(healthy ? "online" : "offline", configured ? (healthy ? "服务正常" : "服务异常") : "等待模型配置");
     elements.runtimeMode.textContent = getRuntimeLabel(data);
   } catch (error) {
+    backendCompatible = false;
     setStatus("offline", "服务未连接");
     elements.runtimeMode.textContent = "离线";
   } finally {
@@ -519,6 +533,7 @@ async function consumeEventStream(response, handlers) {
 }
 
 function getChatPayload() {
+  if (!backendCompatible) throw new Error("后端尚未加载姓名主键版本，请重启项目后再试");
   const userId = elements.userId.value.trim();
   const threadId = elements.threadId.value.trim();
   const subjectId = elements.subjectId.value.trim();

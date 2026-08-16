@@ -63,6 +63,7 @@ def status(request: Request) -> StatusResponse:
             "web_search_enabled": settings.enable_web_search,
             "summarization_enabled": settings.enable_summarization,
             "pii_protection_enabled": settings.enable_pii_protection,
+            "knowledge_identity_mode": "person_name",
         },
     )
 

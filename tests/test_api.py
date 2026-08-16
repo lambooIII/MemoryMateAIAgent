@@ -23,6 +23,7 @@ def test_status_is_available_without_api_key(unconfigured_app) -> None:
     payload = response.json()
     assert payload["status"] == "configuration_required"
     assert payload["capabilities"]["short_term_memory"] == "memory"
+    assert payload["capabilities"]["knowledge_identity_mode"] == "person_name"
 
 
 def test_chat_explains_missing_model_configuration(unconfigured_app) -> None:
