@@ -71,10 +71,12 @@ def test_graph_connects_self_to_people_by_relation() -> None:
     }
 
     (knowledge_dir / "肖越豪" / ".graph.json").write_text(
-        '{"show_relation": false}',
+        '{"show_relation": false, "show_relation_in_details": false}',
         encoding="utf-8",
     )
 
     private_graph = service.graph()
 
     assert {edge["target"] for edge in private_graph["edges"]} == {"余锡雄", "况佳元"}
+    private_node = next(node for node in private_graph["nodes"] if node["id"] == "肖越豪")
+    assert "关系：对象" not in private_node["notes"][0]["content"]

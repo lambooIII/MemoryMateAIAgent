@@ -164,23 +164,26 @@ class RagService:
             paths = [path for path in directory.rglob("*") if path.is_file() and path.suffix.lower() in self.SUPPORTED_SUFFIXES]
             if not paths:
                 continue
+            graph_config_path = directory / ".graph.json"
+            graph_config: dict[str, Any] = {}
+            if graph_config_path.is_file():
+                try:
+                    graph_config = json.loads(graph_config_path.read_text(encoding="utf-8"))
+                except (json.JSONDecodeError, OSError):
+                    graph_config = {}
+            show_relation = graph_config.get("show_relation", True)
+            show_relation_in_details = graph_config.get("show_relation_in_details", True)
             notes = []
             full_texts: list[str] = []
             for path in sorted(paths, reverse=True)[:8]:
                 text = path.read_text(encoding="utf-8")
                 full_texts.append(text)
-                notes.append({"source": path.name, "content": text})
+                display_text = text
+                if not show_relation_in_details:
+                    display_text = re.sub(r"(?m)^-\s*关系\s*[：:].*\r?\n?", "", display_text)
+                notes.append({"source": path.name, "content": display_text})
             combined_text = "\n".join(full_texts)
             relation_match = re.search(r"(?m)^-\s*关系\s*[：:]\s*(.+?)\s*$", combined_text)
-            graph_config_path = directory / ".graph.json"
-            show_relation = True
-            if graph_config_path.is_file():
-                try:
-                    show_relation = json.loads(graph_config_path.read_text(encoding="utf-8")).get(
-                        "show_relation", True
-                    )
-                except (json.JSONDecodeError, OSError):
-                    show_relation = True
             if relation_match and show_relation:
                 relation = relation_match.group(1).strip()
                 relations[directory.name] = re.sub(r"[（(][^）)]*[）)]", "", relation).strip() or relation
