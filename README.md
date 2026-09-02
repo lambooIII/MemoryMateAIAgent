@@ -13,6 +13,7 @@
 - `InMemorySaver` / `PostgresSaver` 短期记忆
 - `InMemoryStore` / `PostgresStore` 长期记忆
 - 文档加载、递归切分、Embedding 和向量检索
+- SQLite GraphRAG、实体关系抽取、聚合查询和最多三跳路径检索
 - 内存向量库 / Milvus 切换
 - LangSmith 可选追踪
 - FastAPI、SSE 和简单网页工作台
@@ -26,12 +27,14 @@ app/
 ├─ agents/       Agent 创建、Prompt 和调用
 ├─ api/          FastAPI 接口
 ├─ core/         配置与日志
+├─ graph/        SQLite 图谱、结构化抽取、聚合与多跳查询
 ├─ memory/       长短期记忆后端工厂
 ├─ models/       ChatModel 与 Embedding 工厂
 ├─ rag/          文档切分、向量仓储和检索
 ├─ schemas/      Pydantic 数据结构
 └─ tools/        Agent 工具
 knowledge/       本地知识文件
+data/            本地 SQLite 知识图谱（运行时生成）
 scripts/         独立知识导入脚本
 tests/           核心测试
 web/             浏览器工作台
@@ -106,9 +109,40 @@ conda run --no-capture-output -n langchain1.2 python scripts/ingest.py
 ```text
 文档 -> RecursiveCharacterTextSplitter -> Embedding
      -> 内存/Milvus -> retrieve_knowledge 工具 -> Agent 回答
+     -> 实体关系抽取 -> SQLite 图谱 -> 聚合/多跳工具 -> Agent 回答
 ```
 
 内存向量库在进程重启后会清空，但默认启用 `AUTO_INGEST_LOCAL_KNOWLEDGE=true`。服务或电脑重启后会扫描 `knowledge/<subject_id>/`，自动调用 Embedding 并重建向量索引，不需要重新上传。原始 Markdown 文件是持久化数据源，向量只是可以随时重建的检索索引。
+
+### GraphRAG 初版
+
+本地图谱默认开启，不需要安装 Neo4j 或其他数据库服务：
+
+```dotenv
+ENABLE_KNOWLEDGE_GRAPH=true
+ENABLE_GRAPH_EXTRACTION=true
+GRAPH_DATABASE_PATH=data/knowledge_graph.db
+GRAPH_MAX_DEPTH=3
+```
+
+上传文档时，系统会在原有向量入库之外抽取人物、部门、组织、地点等实体，以及“任职于”“负责人”“位于”等关系。每条关系均保存来源文件和原文证据，结果持久化到 SQLite。文件内容未变化时不会重复抽取；文件更新后会替换该文档对应的旧关系。
+
+Agent 新增三类图谱工具：
+
+- `query_entity_relations`：查询实体的一跳关系。
+- `aggregate_graph_entities`：对关系目标执行去重计数，例如“财务部有多少人”。
+- `find_relation_paths`：查询两个实体之间最多三跳的关系路径。
+
+可上传以下格式的多份人物文档进行基础演示：
+
+```markdown
+- 姓名：张三
+- 所在部门：财务部
+```
+
+然后询问“财务部有多少人”。系统会对指向财务部的 `person` 实体去重统计，并返回名单和原文证据。复杂自然语言关系由聊天模型结构化抽取；姓名、部门、单位和地址等显式字段另有规则抽取兜底。
+
+当前版本是本地 GraphRAG 初版：支持一跳关系、聚合统计、限制深度的路径搜索和图谱可视化，尚未使用图数据库查询语言，也不包含社区发现等高级 GraphRAG 算法。
 
 ## 4. 切换长短期记忆
 
@@ -167,4 +201,4 @@ conda run --no-capture-output -n langchain1.2 python -m pytest -q
 
 ## 简历描述参考
 
-基于 LangChain 1.2 与 FastAPI 开发隐私优先的私人关系记忆助手，以人物姓名作为 `subject_id` 隔离档案，将关系与昵称作为人物属性，整合关系备忘录、RAG 检索、工具调用、SSE 流式响应和长短期记忆；通过结构化输出提取人物喜好与雷区，并支持内存/PostgreSQL 记忆和内存/Milvus 向量检索切换。
+基于 LangChain 与 LangGraph 构建私人记忆型 AI Agent，通过 ReAct 式 Tool Calling 动态路由向量 RAG、SQLite 知识图谱和 Tavily 联网搜索；支持从上传文档中抽取实体关系、保留来源证据，并通过图谱聚合和限制深度的多跳路径检索回答跨文档关系问题。使用 FastAPI 与 SSE 提供多会话流式服务，支持实体归并、关系图谱展示以及 PostgreSQL、Milvus 可切换存储方案。

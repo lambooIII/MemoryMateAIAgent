@@ -1,5 +1,6 @@
 import hashlib
 import json
+import logging
 import re
 import shutil
 from datetime import datetime
@@ -13,6 +14,9 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from app.core.config import Settings
 from app.models.factory import create_embedding_model
 from app.rag.repository import KnowledgeChunk, VectorRepository
+
+
+logger = logging.getLogger(__name__)
 
 
 class RagService:
@@ -30,9 +34,10 @@ class RagService:
         )
         return heading_match.group(1).strip() if heading_match else None
 
-    def __init__(self, settings: Settings, repository: VectorRepository) -> None:
+    def __init__(self, settings: Settings, repository: VectorRepository, graph_service: Any = None) -> None:
         self.settings = settings
         self.repository = repository
+        self.graph_service = graph_service
         self._embeddings: Any = None
         self._splitter = RecursiveCharacterTextSplitter(
             chunk_size=settings.rag_chunk_size,
@@ -76,6 +81,8 @@ class RagService:
             ]
             if paths:
                 total += self.ingest_paths(paths, subject_directory.name)
+        if self.graph_service is not None:
+            self.graph_service.reconcile_legacy_relations(self.settings.knowledge_dir)
         return total
 
     def subject_directory(self, subject_id: str) -> Path:
@@ -108,7 +115,16 @@ class RagService:
                 )
             )
         vectors = self.embeddings.embed_documents([chunk.text for chunk in chunks]) if chunks else []
-        return self.repository.upsert(chunks, vectors)
+        count = self.repository.upsert(chunks, vectors)
+        if self.graph_service is not None:
+            for document in documents:
+                try:
+                    self.graph_service.ingest_document(
+                        Path(document.metadata["source"]), document.page_content, subject_id
+                    )
+                except Exception:
+                    logger.exception("Failed to update knowledge graph for %s", document.metadata["source"])
+        return count
 
     def save_memory_note(
         self,
@@ -151,6 +167,36 @@ class RagService:
         ]
 
     def graph(self, subject_id: str = "all") -> dict[str, list[dict[str, Any]]]:
+        legacy_graph = self._legacy_graph(subject_id)
+        if self.graph_service is None:
+            return legacy_graph
+        structured_graph = self.graph_service.graph(subject_id)
+        nodes = {node["id"]: node for node in structured_graph["nodes"]}
+        hidden_relations: set[str] = set()
+        for node in legacy_graph["nodes"]:
+            if node["id"] in nodes:
+                nodes[node["id"]] = {
+                    **nodes[node["id"]],
+                    "notes": node["notes"],
+                    "is_self": node["is_self"] or nodes[node["id"]].get("is_self", False),
+                }
+            else:
+                nodes[node["id"]] = {**node, "entity_type": "person"}
+            config_path = self.settings.knowledge_dir / node["id"] / ".graph.json"
+            if config_path.is_file():
+                try:
+                    if not json.loads(config_path.read_text(encoding="utf-8")).get("show_relation", True):
+                        hidden_relations.add(node["id"])
+                except (json.JSONDecodeError, OSError):
+                    pass
+        edges: dict[tuple[str, str, str], dict[str, Any]] = {}
+        for edge in [*structured_graph["edges"], *legacy_graph["edges"]]:
+            if edge["source"] in hidden_relations or edge["target"] in hidden_relations:
+                continue
+            edges[(edge["source"], edge["target"], edge["label"])] = edge
+        return {"nodes": list(nodes.values()), "edges": list(edges.values())}
+
+    def _legacy_graph(self, subject_id: str = "all") -> dict[str, list[dict[str, Any]]]:
         """Build a lightweight people graph from persisted local knowledge folders."""
         self.settings.knowledge_dir.mkdir(parents=True, exist_ok=True)
         nodes: list[dict[str, Any]] = []
@@ -207,6 +253,8 @@ class RagService:
         safe_subject_id = re.sub(r"[^\w-]+", "_", subject_id, flags=re.UNICODE).strip("_") or "general"
         directory = self.settings.knowledge_dir / safe_subject_id
         removed_chunks = self.repository.delete_subject(subject_id)
+        if self.graph_service is not None:
+            self.graph_service.delete_subject(subject_id)
         if directory.exists():
             shutil.rmtree(directory)
         return removed_chunks
@@ -237,6 +285,9 @@ class RagService:
         archive_directory = archive_root / f"{safe_source_id}_{datetime.now():%Y%m%d_%H%M%S}_{uuid4().hex[:8]}"
         shutil.move(str(source_directory), str(archive_directory))
         self.repository.delete_subject(source_subject_id)
+        if self.graph_service is not None:
+            self.graph_service.merge_subject(source_subject_id, target_subject_id)
+            self.graph_service.delete_subject(source_subject_id)
         return self.ingest_paths(merged_paths, target_subject_id) if merged_paths else 0
 
     def search(

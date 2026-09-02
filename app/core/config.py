@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     short_term_memory_backend: Literal["memory", "postgres"] = "memory"
     long_term_memory_backend: Literal["memory", "postgres"] = "memory"
     vector_store_backend: Literal["memory", "milvus"] = "memory"
+    enable_knowledge_graph: bool = True
+    enable_graph_extraction: bool = True
+    graph_database_path: Path = PROJECT_ROOT / "data" / "knowledge_graph.db"
+    graph_max_depth: int = Field(default=3, ge=1, le=5)
     postgres_uri: str = ""
     milvus_uri: str = "http://localhost:19530"
     milvus_token: str = ""
@@ -66,6 +70,8 @@ class Settings(BaseSettings):
     def resolve_paths(self) -> "Settings":
         if not self.knowledge_dir.is_absolute():
             self.knowledge_dir = PROJECT_ROOT / self.knowledge_dir
+        if not self.graph_database_path.is_absolute():
+            self.graph_database_path = PROJECT_ROOT / self.graph_database_path
         if self.rag_chunk_overlap >= self.rag_chunk_size:
             raise ValueError("RAG_CHUNK_OVERLAP must be smaller than RAG_CHUNK_SIZE")
         return self

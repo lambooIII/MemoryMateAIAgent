@@ -253,14 +253,44 @@ function renderStoredMessages() {
   conversationMessages.forEach((item) => createMessage(item.role, item.text, false));
 }
 
-function showGraphDetail(node) {
+const GRAPH_TYPE_LABELS = {
+  person: "人物",
+  department: "部门",
+  organization: "组织",
+  location: "地点",
+  event: "事件",
+  other: "其他",
+};
+
+function showGraphDetail(node, data) {
   elements.graphDetail.replaceChildren();
   const title = document.createElement("h3");
   title.textContent = node.label;
   const hint = document.createElement("p");
   hint.className = "graph-detail-hint";
-  hint.textContent = `${node.notes?.length || 0} 条已保存资料`;
+  hint.textContent = `${GRAPH_TYPE_LABELS[node.entity_type] || "实体"} · ${node.notes?.length || 0} 条来源资料`;
   elements.graphDetail.append(title, hint);
+  const relatedEdges = (data.edges || []).filter((edge) => edge.source === node.id || edge.target === node.id);
+  if (relatedEdges.length) {
+    const relationsTitle = document.createElement("strong");
+    relationsTitle.className = "graph-section-title";
+    relationsTitle.textContent = `关联关系（${relatedEdges.length}）`;
+    elements.graphDetail.append(relationsTitle);
+    relatedEdges.forEach((edge) => {
+      const relation = document.createElement("article");
+      relation.className = "graph-relation-detail";
+      const chain = document.createElement("b");
+      chain.textContent = `${edge.source} -[${edge.label}]-> ${edge.target}`;
+      relation.append(chain);
+      if (edge.evidence) {
+        const evidence = document.createElement("p");
+        const sourceName = edge.source_path ? edge.source_path.split(/[\\/]/).pop() : "本地知识库";
+        evidence.textContent = `${edge.evidence}\n来源：${sourceName}`;
+        relation.append(evidence);
+      }
+      elements.graphDetail.append(relation);
+    });
+  }
   (node.notes || []).forEach((note) => {
     const article = document.createElement("article");
     article.className = "graph-note";
@@ -278,7 +308,7 @@ function renderGraph(data) {
   if (!data.nodes?.length) {
     const empty = document.createElement("div");
     empty.className = "graph-empty";
-    empty.innerHTML = "<div class=\"graph-empty-mark\">◎</div><h3>还没有人物节点</h3><p>在聊天或知识库中确认保存人物资料后，这里会自动生成小球。</p>";
+    empty.innerHTML = "<div class=\"graph-empty-mark\">◎</div><h3>还没有实体节点</h3><p>上传人物资料后，系统会抽取人物、部门、组织、地点及其关系。</p>";
     elements.graphCanvas.append(empty);
     elements.graphDetail.replaceChildren();
     const detailEmpty = document.createElement("div");
@@ -290,7 +320,7 @@ function renderGraph(data) {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("viewBox", "0 0 720 460");
   svg.setAttribute("role", "img");
-  svg.setAttribute("aria-label", "人物知识图谱");
+  svg.setAttribute("aria-label", "人物与组织关系知识图谱");
   const edges = data.edges || [];
   const selfNode = data.nodes.find((node) => node.is_self);
   const positions = new Map();
@@ -324,23 +354,39 @@ function renderGraph(data) {
   data.nodes.forEach((node, index) => {
     const { x, y } = positions.get(node.id);
     const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    group.setAttribute("class", "graph-node");
+    group.setAttribute("class", `graph-node entity-type-${node.entity_type || "person"}`);
     group.setAttribute("tabindex", "0");
     group.setAttribute("transform", `translate(${x} ${y})`);
-    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    circle.setAttribute("r", "42");
+    let shape;
+    if (node.entity_type === "department" || node.entity_type === "organization") {
+      shape = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      shape.setAttribute("x", "-50");
+      shape.setAttribute("y", "-32");
+      shape.setAttribute("width", "100");
+      shape.setAttribute("height", "64");
+      shape.setAttribute("rx", "7");
+    } else if (node.entity_type === "location") {
+      shape = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+      shape.setAttribute("points", "0,-43 55,0 0,43 -55,0");
+    } else {
+      shape = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      shape.setAttribute("r", "42");
+    }
+    shape.setAttribute("class", "node-shape");
     const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
     label.setAttribute("text-anchor", "middle");
     label.setAttribute("dy", "5");
-    label.textContent = node.label;
+    label.textContent = node.label.length > 9 ? `${node.label.slice(0, 8)}…` : node.label;
+    const tooltip = document.createElementNS("http://www.w3.org/2000/svg", "title");
+    tooltip.textContent = `${node.label}（${GRAPH_TYPE_LABELS[node.entity_type] || "实体"}）`;
     const core = document.createElementNS("http://www.w3.org/2000/svg", "g");
     core.setAttribute("class", "graph-node-core");
-    core.append(circle, label);
+    core.append(shape, label, tooltip);
     group.append(core);
     const selectNode = () => {
       svg.querySelectorAll(".graph-node.is-selected").forEach((selected) => selected.classList.remove("is-selected"));
       group.classList.add("is-selected");
-      showGraphDetail(node);
+      showGraphDetail(node, data);
     };
     group.addEventListener("click", selectNode);
     group.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") selectNode(); });
@@ -350,7 +396,7 @@ function renderGraph(data) {
   elements.graphDetail.replaceChildren();
   const detailEmpty = document.createElement("div");
   detailEmpty.className = "graph-detail-empty";
-  detailEmpty.textContent = "点击人物节点查看已保存资料";
+  detailEmpty.textContent = "点击实体节点查看资料、关系与来源证据";
   elements.graphDetail.append(detailEmpty);
 }
 

@@ -33,6 +33,41 @@ def knowledge_graph(request: Request, subject_id: str = "all") -> dict:
     return request.app.state.rag_service.graph(subject_id)
 
 
+@router.get("/knowledge/graph/entity")
+def knowledge_graph_entity(request: Request, name: str, predicate: str | None = None) -> dict[str, str]:
+    service = getattr(request.app.state, "graph_service", None)
+    if service is None:
+        raise HTTPException(status_code=503, detail="知识图谱未启用")
+    return {"answer": service.describe_entity(name, predicate)}
+
+
+@router.get("/knowledge/graph/aggregate")
+def knowledge_graph_aggregate(
+    request: Request,
+    target_name: str,
+    predicate: str | None = None,
+    source_type: str = "person",
+) -> dict[str, str]:
+    service = getattr(request.app.state, "graph_service", None)
+    if service is None:
+        raise HTTPException(status_code=503, detail="知识图谱未启用")
+    return {"answer": service.aggregate(target_name, predicate, source_type)}
+
+
+@router.get("/knowledge/graph/paths")
+def knowledge_graph_paths(
+    request: Request,
+    source_name: str,
+    target_name: str,
+    max_depth: int = 3,
+) -> dict[str, str]:
+    service = getattr(request.app.state, "graph_service", None)
+    if service is None:
+        raise HTTPException(status_code=503, detail="知识图谱未启用")
+    bounded_depth = min(max(max_depth, 1), 5)
+    return {"answer": service.find_paths(source_name, target_name, bounded_depth)}
+
+
 @router.delete("/knowledge/subjects/{subject_id}")
 async def delete_knowledge_subject(subject_id: str, request: Request) -> dict[str, int | str]:
     try:
@@ -64,6 +99,8 @@ def status(request: Request) -> StatusResponse:
             "summarization_enabled": settings.enable_summarization,
             "pii_protection_enabled": settings.enable_pii_protection,
             "knowledge_identity_mode": "person_name",
+            "knowledge_graph_enabled": settings.enable_knowledge_graph,
+            "graph_extraction_enabled": settings.enable_graph_extraction,
         },
     )
 

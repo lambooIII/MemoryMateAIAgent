@@ -321,10 +321,16 @@ label.field:has(#userId), label.field:has(#subjectId) { display: none; }
 .graph-edge { stroke: #9aa8b8; stroke-width: 1.5; }
 .graph-edge-label { fill: #5d6876; stroke: #f7f8fa; stroke-width: 6px; paint-order: stroke; font-size: 12px; font-weight: 650; pointer-events: none; }
 .graph-node { cursor: pointer; outline: none; }
-.graph-node circle { fill: #dbeafe; stroke: #2563eb; stroke-width: 2; filter: drop-shadow(0 7px 8px rgb(37 99 235 / 15%)); transition: fill 180ms ease, r 180ms ease; }
+.graph-node-core { transform-box: fill-box; transform-origin: center; transition: transform 180ms ease; }
+.graph-node .node-shape { fill: #dbeafe; stroke: #2563eb; stroke-width: 2; filter: drop-shadow(0 7px 8px rgb(37 99 235 / 15%)); transition: fill 180ms ease; }
+.graph-node.entity-type-department .node-shape { fill: #dcfce7; stroke: #16865c; }
+.graph-node.entity-type-organization .node-shape { fill: #fef3c7; stroke: #b7791f; }
+.graph-node.entity-type-location .node-shape { fill: #fce7f3; stroke: #be3b78; }
+.graph-node.entity-type-event .node-shape { fill: #ede9fe; stroke: #7557c8; }
 .graph-node text { fill: #172033; font-size: 14px; font-weight: 650; pointer-events: none; }
-.graph-node:hover circle, .graph-node.is-selected circle { r: 49px; fill: #bfdbfe; }
-.graph-node:focus circle { stroke-width: 3; }
+.graph-node:hover .graph-node-core, .graph-node.is-selected .graph-node-core { transform: scale(1.12); }
+.graph-node:hover .node-shape, .graph-node.is-selected .node-shape { fill: #bfdbfe; }
+.graph-node:focus .node-shape { stroke-width: 3; }
 .graph-empty { max-width: 260px; text-align: center; color: var(--muted); }
 .graph-empty-mark { margin: 0 auto 12px; color: #2563eb; font-size: 54px; line-height: 1; }
 .graph-empty h3 { margin: 0 0 8px; color: var(--text); }
@@ -336,6 +342,10 @@ label.field:has(#userId), label.field:has(#subjectId) { display: none; }
 .graph-note { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
 .graph-note strong { font-size: 12px; }
 .graph-note p { margin: 6px 0 0; color: var(--muted); font-size: 12px; line-height: 1.65; white-space: pre-wrap; }
+.graph-section-title { display: block; margin: 14px 0 4px; font-size: 12px; }
+.graph-relation-detail { padding: 10px 0; border-bottom: 1px solid var(--border); }
+.graph-relation-detail b { font-size: 12px; line-height: 1.5; }
+.graph-relation-detail p { margin: 5px 0 0; color: var(--muted); font-size: 11px; line-height: 1.55; white-space: pre-wrap; }
 
 .status-line {
   display: flex;

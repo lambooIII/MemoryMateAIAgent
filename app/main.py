@@ -10,6 +10,9 @@ from app.agents.service import AgentService
 from app.api.routes import router
 from app.core.config import PROJECT_ROOT, get_settings
 from app.core.logging import configure_logging
+from app.graph.extraction import GraphExtractor
+from app.graph.repository import SQLiteGraphRepository
+from app.graph.service import KnowledgeGraphService
 from app.memory.factory import MemoryResources
 from app.models.factory import create_chat_model
 from app.rag.repository import create_vector_repository
@@ -36,9 +39,17 @@ async def lifespan(app: FastAPI):
 
     memory = MemoryResources(settings).open()
     vector_repository = create_vector_repository(settings)
-    rag_service = RagService(settings, vector_repository)
+    chat_model = create_chat_model(settings) if settings.model_configured else None
+    graph_service = None
+    if settings.enable_knowledge_graph:
+        graph_service = KnowledgeGraphService(
+            SQLiteGraphRepository(settings.graph_database_path),
+            GraphExtractor(chat_model if settings.enable_graph_extraction else None),
+        )
+    rag_service = RagService(settings, vector_repository, graph_service)
     app.state.settings = settings
     app.state.rag_service = rag_service
+    app.state.graph_service = graph_service
     app.state.agent_service = None
     if (
         settings.enable_rag
@@ -53,7 +64,7 @@ async def lifespan(app: FastAPI):
     if settings.model_configured:
         app.state.agent_service = AgentService(
             settings=settings,
-            model=create_chat_model(settings),
+            model=chat_model,
             checkpointer=memory.checkpointer,
             store=memory.store,
             rag_service=rag_service,
@@ -62,6 +73,8 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         vector_repository.close()
+        if graph_service is not None:
+            graph_service.close()
         memory.close()
 
 

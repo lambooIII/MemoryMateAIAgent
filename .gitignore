@@ -9,4 +9,5 @@ htmlcov/
 .vscode/
 .temp/
 uploads/
-
+data/*.db
+data/*.db-*
