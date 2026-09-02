@@ -1,0 +1,7 @@
+[
+  {"question": "张三在哪个部门？", "expected_tool": "retrieve_knowledge", "expected_sources": ["张三.md"], "expected_answer_contains": ["财务部"]},
+  {"question": "财务部有多少人？", "expected_tool": "aggregate_graph_entities", "expected_sources": ["张三.md", "李四.md"], "expected_answer_contains": ["2", "张三", "李四"]},
+  {"question": "财务部负责人在哪里办公？", "expected_tool": "find_relation_paths", "expected_sources": ["部门说明.md"], "expected_answer_contains": ["赵经理", "总部 3 楼"]},
+  {"question": "张三喜欢什么？", "expected_tool": "retrieve_knowledge", "expected_sources": ["张三.md"], "expected_answer_contains": ["川菜", "徒步"]},
+  {"question": "计算 123 * 8", "expected_tool": "calculator", "expected_sources": [], "expected_answer_contains": ["984"]}
+]

@@ -99,6 +99,34 @@ class GraphExtractor:
                         evidence=evidence,
                     )
                 )
+        # Handle compact relationship facts such as “财务部负责人：赵经理”.
+        relation_patterns = [
+            (r"(?m)^\s*(.+?)负责人\s*[：:]\s*(.+?)\s*$", "负责人", "department", "person"),
+            (r"(?m)^\s*(.+?)(?:办公地点|办公地址)\s*[：:]\s*(.+?)\s*$", "办公地点", "department", "location"),
+        ]
+        for pattern, predicate, source_type, target_type in relation_patterns:
+            for match in re.finditer(pattern, text):
+                source = match.group(1).strip().lstrip("- ")
+                target = match.group(2).strip()
+                if not source or not target:
+                    continue
+                evidence = match.group(0).strip()
+                entities.extend(
+                    [
+                        ExtractedEntity(name=source, entity_type=source_type, evidence=evidence),
+                        ExtractedEntity(name=target, entity_type=target_type, evidence=evidence),
+                    ]
+                )
+                relations.append(
+                    ExtractedRelation(
+                        source=source,
+                        source_type=source_type,
+                        predicate=predicate,
+                        target=target,
+                        target_type=target_type,
+                        evidence=evidence,
+                    )
+                )
         return GraphExtraction(entities=entities, relations=relations)
 
     @staticmethod
