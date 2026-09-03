@@ -162,3 +162,4 @@ def _content_to_text(content: Any) -> str:
             if isinstance(block, dict) and block.get("type") == "text"
         )
     return str(content)
+#返回，删除数据库
